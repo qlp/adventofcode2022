@@ -1,7 +1,6 @@
 package nl.q8p.aoc2022;
 
 import java.io.IOException;
-import java.lang.reflect.Constructor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -9,7 +8,7 @@ import java.util.List;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
-import static java.lang.System.*;
+import static java.lang.System.err;
 
 public class Main {
 
@@ -43,16 +42,16 @@ public class Main {
     }
 
     private static List<Day> loadDays() {
-        List<Day> days = new ArrayList<>();
+        final var days = new ArrayList<Day>();
 
-        for (int i = 1; i <= 25; i++) {
-            String dayNumberString = String.format("%02d", i);
+        for (var i = 1; i <= 25; i++) {
+            final var dayNumberString = String.format("%02d", i);
 
-            String className = Day.class.getPackageName() + ".day" + dayNumberString + ".Day" + dayNumberString;
+            final var className = Day.class.getPackageName() + ".day" + dayNumberString + ".Day" + dayNumberString;
             try {
-                Class<?> clazz = Class.forName(className);
-                Constructor<?> constructor = clazz.getConstructor();
-                Object candidate = constructor.newInstance();
+                final var clazz = Class.forName(className);
+                final var constructor = clazz.getConstructor();
+                final var candidate = constructor.newInstance();
 
                 if (candidate instanceof Day day) {
                     days.add(day);
@@ -60,10 +59,10 @@ public class Main {
                 } else {
                     log.warning(() -> "Day" + dayNumberString + " is not a Day");
                 }
-            } catch (ClassNotFoundException e) {
+            } catch (final ClassNotFoundException e) {
                 // No class for this day yet.
                 log.fine(() -> "No class '" + className + "' found.");
-            } catch (ReflectiveOperationException e) {
+            } catch (final ReflectiveOperationException e) {
                 log.severe(() -> "Day" + dayNumberString + " cannot be created: " + e.getMessage());
                 e.printStackTrace();
             }

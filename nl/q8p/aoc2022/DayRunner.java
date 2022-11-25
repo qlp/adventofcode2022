@@ -1,7 +1,6 @@
 package nl.q8p.aoc2022;
 
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.logging.Logger;
@@ -23,8 +22,12 @@ public class DayRunner {
     }
 
     void run() {
-        printAssignment(FIRST, day.first());
-        printAssignment(SECOND, day.second());
+        try {
+            printAssignment(FIRST, day.first());
+            printAssignment(SECOND, day.second());
+        } catch (final Exception exception) {
+            printException(exception);
+        }
     }
 
     private void printHeader(final AssignmentType assignmentType) {
@@ -33,47 +36,45 @@ public class DayRunner {
         printSeparator();
     }
 
-    private void printAssignment(AssignmentType assignmentType, Assignment assignment) {
+    private void printAssignment(final AssignmentType assignmentType, final Assignment assignment) {
         printHeader(assignmentType);
         try {
-            final AssignmentData assignmentData = readAssignmentData(assignmentType);
+            final var assignmentData = readAssignmentData(assignmentType);
 
             run(assignment, assignmentData);
 
 
-        } catch (IOException e) {
+        } catch (final IOException e) {
             log.severe(() -> "Cannot read assignment data: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private void run(Assignment assignment, AssignmentData assignmentData) {
+    private void run(final Assignment assignment, final AssignmentData assignmentData) {
         try {
-            final String actual = assignment.run(assignmentData.example);
+            final var actual = assignment.run(assignmentData.example);
 
             log.info(() -> "  EXAMPLE  : " + actual);
             if (!actual.equals(assignmentData.expected)) {
                 log.info(() -> "  EXPECTING: " + assignmentData.expected);
             }
-        } catch (Exception exception) {
+        } catch (final Exception exception) {
             log.info(() -> "  EXAMPLE  : EXCEPTION: " + exception.getMessage());
             exception.printStackTrace();
-            printSeparator();
         }
 
         try {
-            final String actual = assignment.run(assignmentData.real);
+            final var actual = assignment.run(assignmentData.real);
             log.info(() -> "  REAL     : " + actual);
-        } catch (Exception exception) {
+        } catch (final Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
             exception.printStackTrace();
-            printSeparator();
         }
     }
 
     private record AssignmentData(String example, String expected, String real) {}
 
-    private AssignmentData readAssignmentData(AssignmentType assignmentType) throws IOException {
+    private AssignmentData readAssignmentData(final AssignmentType assignmentType) throws IOException {
         return new AssignmentData(
             readFile(assignmentType, "example.txt"),
             readFile(assignmentType, "expected.txt"),
@@ -81,9 +82,9 @@ public class DayRunner {
         );
     }
 
-    private String readFile(AssignmentType assignmentType, String inputFileName) throws IOException {
-        final String inputFileResourceName = inputFileResourceName(assignmentType, inputFileName);
-        final URL resource = day.getClass().getClassLoader().getResource(inputFileResourceName);
+    private String readFile(final AssignmentType assignmentType, final String inputFileName) throws IOException {
+        final var inputFileResourceName = inputFileResourceName(assignmentType, inputFileName);
+        final var resource = day.getClass().getClassLoader().getResource(inputFileResourceName);
 
         if (resource == null) {
             throw new IOException("File not found: " + inputFileResourceName);
@@ -92,11 +93,18 @@ public class DayRunner {
         return Files.readString(Path.of(resource.getPath()));
     }
 
-    private String inputFileResourceName(AssignmentType assignmentType, String inputFileName) {
+    private String inputFileResourceName(final AssignmentType assignmentType, final String inputFileName) {
         return day.getClass().getPackageName().replace('.', '/') + "/data/" + assignmentType.name().toLowerCase() + "/" + inputFileName;
     }
 
     private void printSeparator() {
-        log.info(() -> "-------------------------");
+        log.info(() -> "---------------------------------------------------------------------------");
+    }
+
+    private void printException(Exception exception) {
+        printSeparator();
+        log.severe(() -> day.getClass().getSimpleName() + ": cannot create assignment: " + exception);
+        exception.printStackTrace();
+        printSeparator();
     }
 }
