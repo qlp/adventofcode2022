@@ -1,11 +1,9 @@
 package nl.q8p.aoc2022;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.util.Objects;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.logging.Logger;
 
 import static nl.q8p.aoc2022.DayRunner.AssignmentType.FIRST;
@@ -38,12 +36,24 @@ public class DayRunner {
     private void printAssignment(AssignmentType assignmentType, Assignment assignment) {
         printHeader(assignmentType);
         try {
-            String actual = run(assignment, assignmentType, "example.txt");
+            final AssignmentData assignmentData = readAssignmentData(assignmentType);
 
-            String expected = readFile(assignmentType, "expected.txt");
+            run(assignment, assignmentData);
+
+
+        } catch (IOException e) {
+            log.severe(() -> "Cannot read assignment data: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void run(Assignment assignment, AssignmentData assignmentData) {
+        try {
+            final String actual = assignment.run(assignmentData.example);
+
             log.info(() -> "  EXAMPLE  : " + actual);
-            if (!actual.equals(expected)) {
-                log.info(() -> "  EXPECTING: " + expected);
+            if (!actual.equals(assignmentData.expected)) {
+                log.info(() -> "  EXPECTING: " + assignmentData.expected);
             }
         } catch (Exception exception) {
             log.info(() -> "  EXAMPLE  : EXCEPTION: " + exception.getMessage());
@@ -52,7 +62,7 @@ public class DayRunner {
         }
 
         try {
-            String actual = run(assignment, assignmentType, "real.txt");
+            final String actual = assignment.run(assignmentData.real);
             log.info(() -> "  REAL     : " + actual);
         } catch (Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
@@ -61,34 +71,25 @@ public class DayRunner {
         }
     }
 
-    private String run(Assignment assignment, AssignmentType assignmentType, String inputFileName) throws Exception {
-        return assignment.run(readFile(assignmentType, inputFileName));
+    private record AssignmentData(String example, String expected, String real) {}
+
+    private AssignmentData readAssignmentData(AssignmentType assignmentType) throws IOException {
+        return new AssignmentData(
+            readFile(assignmentType, "example.txt"),
+            readFile(assignmentType, "expected.txt"),
+            readFile(assignmentType, "real.txt")
+        );
     }
 
     private String readFile(AssignmentType assignmentType, String inputFileName) throws IOException {
         final String inputFileResourceName = inputFileResourceName(assignmentType, inputFileName);
-        try (InputStream inputStream = day.getClass().getClassLoader().getResourceAsStream(inputFileResourceName)) {
+        final URL resource = day.getClass().getClassLoader().getResource(inputFileResourceName);
 
-            if (inputStream == null) {
-                throw new IOException("File not found: " + inputFileResourceName);
-            }
-
-            try (Reader reader = new InputStreamReader(Objects.requireNonNull(inputStream))) {
-                StringWriter writer = new StringWriter();
-
-                char[] buffer = new char[1024];
-
-                int charsRead = reader.read(buffer);
-
-                while (charsRead != -1) {
-                    writer.write(buffer, 0, charsRead);
-
-                    charsRead = reader.read(buffer);
-                }
-
-                return writer.toString();
-            }
+        if (resource == null) {
+            throw new IOException("File not found: " + inputFileResourceName);
         }
+
+        return Files.readString(Path.of(resource.getPath()));
     }
 
     private String inputFileResourceName(AssignmentType assignmentType, String inputFileName) {
