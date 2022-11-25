@@ -9,3 +9,7 @@ jobs:
       - run: cd ${{ github.workspace }}
       - uses: cachix/install-nix-action@v18
       - run: nix build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: jar
+          path: result/aoc2022.jar
