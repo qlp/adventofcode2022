@@ -1,8 +1,6 @@
 name: check
-on:
-  pull_request:
-    branches:
-      - main
+run-name: ${{ github.actor }} is running NIX
+on: [push]
 jobs:
   nix-build:
     runs-on: ubuntu-latest
