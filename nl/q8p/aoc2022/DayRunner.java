@@ -1,8 +1,7 @@
 package nl.q8p.aoc2022;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.*;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 import static nl.q8p.aoc2022.DayRunner.AssignmentType.FIRST;
@@ -84,14 +83,28 @@ public class DayRunner {
 
     private String readFile(final AssignmentType assignmentType, final String inputFileName) throws IOException {
         final var inputFileResourceName = inputFileResourceName(assignmentType, inputFileName);
-        final var resource = day.getClass().getClassLoader().getResource(inputFileResourceName);
+        try (final var inputStream = day.getClass().getClassLoader().getResourceAsStream(inputFileResourceName)) {
 
-        if (resource == null) {
-            throw new IOException("File not found: " + inputFileResourceName);
-        }
+            if (inputStream == null) {
+                throw new IOException("File not found: " + inputFileResourceName);
+            }
 
-        return Files.readString(Path.of(resource.getPath()));
-    }
+            try (Reader reader = new InputStreamReader(Objects.requireNonNull(inputStream))) {
+                final var writer = new StringWriter();
+
+                final var buffer = new char[1024];
+
+                var charsRead = reader.read(buffer);
+
+                while (charsRead != -1) {
+                    writer.write(buffer, 0, charsRead);
+
+                    charsRead = reader.read(buffer);
+                }
+
+                return writer.toString();
+            }
+        }    }
 
     private String inputFileResourceName(final AssignmentType assignmentType, final String inputFileName) {
         return day.getClass().getPackageName().replace('.', '/') + "/data/" + assignmentType.name().toLowerCase() + "/" + inputFileName;

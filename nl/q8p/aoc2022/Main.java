@@ -1,8 +1,6 @@
 package nl.q8p.aoc2022;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.LogManager;
@@ -28,7 +26,7 @@ public class Main {
 
     private static void configureLogging() {
         try {
-            LogManager.getLogManager().readConfiguration(Files.newInputStream(Path.of("logging.properties")));
+            LogManager.getLogManager().readConfiguration(Main.class.getClassLoader().getResourceAsStream("logging.properties"));
         } catch (IOException e) {
             err.println("Problem configuring logging" + e);
             e.printStackTrace();
