@@ -9,5 +9,5 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'oracle'
-          java-version: '19'
+          java-version: '17'
       - run: java nl/q8p/aoc2022/Main.java
