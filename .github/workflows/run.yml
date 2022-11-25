@@ -8,6 +8,6 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
         with:
-          distribution: 'oracle'
+          distribution: 'temurin'
           java-version: '17'
       - run: java nl/q8p/aoc2022/Main.java
