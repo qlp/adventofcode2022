@@ -8,8 +8,8 @@ jobs:
       - uses: actions/checkout@v3
       - run: cd ${{ github.workspace }}
       - uses: cachix/install-nix-action@v18
-      - run: nix build
+      - run: nix build -L && cp --recursive --dereference --no-preserve=mode,ownership result public
       - uses: actions/upload-artifact@v3
         with:
           name: jar
-          path: result/aoc2022.jar
+          path: public/aoc2022.jar

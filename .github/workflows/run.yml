@@ -10,4 +10,8 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - run: ./run.sh
+      - run: ./run.sh > output.log
+      - uses: actions/upload-artifact@v3
+        with:
+          name: log
+          path: output.log
