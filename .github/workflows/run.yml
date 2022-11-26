@@ -11,3 +11,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - run: ./run.sh
+      - uses: actions/upload-artifact@v3
+        with:
+          name: aoc2022.log
+          path: aoc2022.log
