@@ -75,14 +75,14 @@ public class DayRunner {
 
     private AssignmentData readAssignmentData(final AssignmentType assignmentType) throws IOException {
         return new AssignmentData(
-            readFile(assignmentType, "example.txt"),
-            readFile(assignmentType, "expected.txt"),
-            readFile(assignmentType, "real.txt")
+            readFile("input-example.txt"),
+            readFile("expected-" + assignmentType.name().toLowerCase() + ".txt"),
+            readFile("input-real.txt")
         );
     }
 
-    private String readFile(final AssignmentType assignmentType, final String inputFileName) throws IOException {
-        final var inputFileResourceName = inputFileResourceName(assignmentType, inputFileName);
+    private String readFile(final String inputFileName) throws IOException {
+        final var inputFileResourceName = inputFileResourceName(inputFileName);
         try (final var inputStream = day.getClass().getClassLoader().getResourceAsStream(inputFileResourceName)) {
 
             if (inputStream == null) {
@@ -106,8 +106,8 @@ public class DayRunner {
             }
         }    }
 
-    private String inputFileResourceName(final AssignmentType assignmentType, final String inputFileName) {
-        return day.getClass().getPackageName().replace('.', '/') + "/data/" + assignmentType.name().toLowerCase() + "/" + inputFileName;
+    private String inputFileResourceName(final String inputFileName) {
+        return day.getClass().getPackageName().replace('.', '/') + "/data/" + inputFileName;
     }
 
     private void printSeparator() {
