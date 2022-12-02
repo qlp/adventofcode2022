@@ -51,7 +51,7 @@ public class DayRunner {
 
     private void run(final Assignment assignment, final AssignmentData assignmentData) {
         try {
-            final var actual = assignment.run(assignmentData.example);
+            final var actual = assignment.run(assignmentData.example).toString();
 
             log.info(() -> "  EXAMPLE  : " + actual);
             if (!actual.equals(assignmentData.expected)) {
@@ -63,7 +63,7 @@ public class DayRunner {
         }
 
         try {
-            final var actual = assignment.run(assignmentData.real);
+            final var actual = assignment.run(assignmentData.real).toString();
             log.info(() -> "  REAL     : " + actual);
         } catch (final Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());

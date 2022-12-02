@@ -11,28 +11,26 @@ public class Day01 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> Integer.toString(stream(input.split("\\n\\n")) // group for each Elve
-                .mapToInt(group -> stream(group.split("\\n")) // list of calories (as String)
-                    .mapToInt(Integer::parseInt) // list of calories (as Int)
-                    .sum() // sum of calories of elve
-                ) // total of calories for each elve
-                .max() // get the max
-                .orElse(0)
-        );
+        return input -> stream(input.split("\\n\\n")) // group for each Elve
+            .mapToInt(group -> stream(group.split("\\n")) // list of calories (as String)
+                .mapToInt(Integer::parseInt) // list of calories (as Int)
+                .sum() // sum of calories of elve
+            ) // total of calories for each elve
+            .max() // get the max
+            .orElse(0);
     }
 
     @Override
     public Assignment second() {
-        return input -> Integer.toString(
-                stream(input.split("\\n\\n")) // group for each Elve
-                .map(group -> stream(group.split("\\n")) // list of calories (as String)
-                    .mapToInt(Integer::parseInt) // list of calories (as Int)
-                    .sum() // sum of calories
-                )
-                .sorted(Collections.reverseOrder()) // sort descending
-                .mapToInt(Integer::intValue)
-                .limit(3) // first three
-                .sum() // sum
-        );
+        return input ->
+            stream(input.split("\\n\\n")) // group for each Elve
+            .map(group -> stream(group.split("\\n")) // list of calories (as String)
+                .mapToInt(Integer::parseInt) // list of calories (as Int)
+                .sum() // sum of calories
+            )
+            .sorted(Collections.reverseOrder()) // sort descending
+            .mapToInt(Integer::intValue)
+            .limit(3) // first three
+            .sum(); // sum
     }
 }
