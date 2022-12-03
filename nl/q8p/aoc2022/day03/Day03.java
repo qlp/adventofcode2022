@@ -4,7 +4,9 @@ import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
@@ -34,11 +36,7 @@ public class Day03 implements Day {
                     .map(group -> group.stream()
                             .map(rucksack -> rucksack.chars().boxed().collect(Collectors.toSet()))
                             .toList())
-                    .map(group -> {
-                        group.get(0).retainAll(group.get(1));
-                        group.get(0).retainAll(group.get(2));
-
-                        return group.get(0);})
+                    .map(group -> group.stream().reduce((one, other) -> { var result = new HashSet<>(one); result.retainAll(other); return result;}).orElseThrow())
                     .mapToInt(foundInAll -> foundInAll.iterator().next())
                     .map(foundInAll -> foundInAll - (Character.isLowerCase((char)foundInAll) ? 'a' - 1 : 'A' - 27))
                     .sum();
