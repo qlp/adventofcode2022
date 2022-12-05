@@ -23,11 +23,9 @@ public class Day03 implements Day {
     @Override
     public Assignment second() {
         return input -> stream(input.split("\\n"))
+            .map(rucksack -> rucksack.chars().boxed().collect(Collectors.toSet()))
             .collect(GroupCollector.withSize(3))
             .stream()
-            .map(group -> group.stream()
-                    .map(rucksack -> rucksack.chars().boxed().collect(Collectors.toSet()))
-                    .toList())
             .map(group -> group.stream()
                     .reduce((one, other) -> {
                         var result = new HashSet<>(one);
