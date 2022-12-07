@@ -3,21 +3,17 @@ package nl.q8p.aoc2022.day07;
 import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.stream.Stream;
 
 public class Day07 implements Day {
 
-    static String withIndent(int indent, String string) {
-        return "  ".repeat(indent) + string;
-    }
-
     sealed interface Item permits Folder, File {
-        String name();
-
         long size();
     }
 
@@ -26,64 +22,53 @@ public class Day07 implements Day {
             this(new LinkedList<>());
         }
 
-        void gotoRoot() {
-            segments.clear();
+        public String firstSegment() {
+            return segments.getFirst();
         }
 
-        void gotoParent() {
-            segments.removeLast();
+        public Path withoutFirstSegment() {
+            return new Path(new LinkedList<>(segments.subList(1, segments.size())));
         }
 
-        public void gotoChild(String child) {
-            segments.add(child);
+        public void changeDirectory(String name) {
+            switch (name) {
+                case "/" -> segments.clear();
+                case ".." -> segments.removeLast();
+                default -> segments.add(name);
+            }
         }
 
-        @Override
-        public String toString() {
-            return String.join("/", segments);
+        public boolean isEmpty() {
+            return segments.isEmpty();
         }
     }
 
-    record Folder(String name, List<Item> contents)
+    record Folder(Map<String, Item> contents)
     implements Item {
         Folder() {
-            this(null);
+            this(new HashMap<>());
         }
 
-        Folder(String name) {
-            this(name, new ArrayList<>());
+        public void createItem(Path path, String name, Item item) {
+            folder(path).contents.put(name, item);
         }
 
-        public void createItem(Path path, Item item) {
-            var target = item(path);
-
-            if (target instanceof Folder folder) {
-                folder.contents.add(item);
+        public Folder folder(Path path) {
+            if (path.isEmpty()) {
+                return this;
+            } else if (contents.get(path.firstSegment()) instanceof Folder f) {
+                return f.folder(path.withoutFirstSegment());
             } else {
-                throw new IllegalStateException("Can't add file to file: " + target + " (in " + path + ")");
+                throw new NoSuchElementException(path.toString());
             }
-        }
-
-        public Item item(Path path) {
-            Item result = this;
-
-            for(String segment : path.segments) {
-                if (result instanceof Folder folder) {
-                    result = folder.contents.stream().filter(i -> i.name().equals(segment)).findFirst().orElseThrow(() -> new IllegalStateException("File not found: " + segment + " in " + path));
-                } else {
-                    throw new IllegalStateException("Can't list file " + segment + " when evaluating path: " + path);
-                }
-            }
-
-            return result;
         }
 
         public long size() {
-            return contents.stream().mapToLong(Item::size).sum();
+            return contents.values().stream().mapToLong(Item::size).sum();
         }
 
         public List<Item> flatten() {
-            return Stream.concat(Stream.of(this), contents.stream().flatMap(i -> {
+            return Stream.concat(Stream.of(this), contents.values().stream().flatMap(i -> {
                 if (i instanceof Folder f) {
                     return f.flatten().stream();
                 } else if (i instanceof File f) {
@@ -95,10 +80,8 @@ public class Day07 implements Day {
         }
     }
 
-    record File(String name, long size)
-    implements Item {
-
-    }
+    record File(long size)
+    implements Item { }
 
     record Device(Folder filesystem, Path path) {
         Device() {
@@ -106,23 +89,19 @@ public class Day07 implements Day {
         }
 
         void execute(String command) {
-            if (command.equals("$ cd /")) {
-                path.gotoRoot();
-            } else if (command.equals("$ cd ..")) {
-                path.gotoParent();
-            } else if (command.startsWith("$ cd ")) {
-                path.gotoChild(command.substring("$ cd ".length()));
+            if (command.startsWith("$ cd ")) {
+                path.changeDirectory(command.substring("$ cd ".length()));
             } else if (command.equals("$ ls")) {
                 // ignore, reading in next lines
             } else if (command.startsWith("dir ")) {
                 var name = command.substring("dir ".length());
-                filesystem.createItem(path, new Folder(name));
+                filesystem.createItem(path, name, new Folder());
             } else {
                 // should be a file
                 var size = Long.parseLong(command.substring(0, command.indexOf(' ')));
                 var name = command.substring(command.indexOf(' ') + 1);
 
-                filesystem.createItem(path, new File(name, size));
+                filesystem.createItem(path, name, new File(size));
             }
         }
     }
