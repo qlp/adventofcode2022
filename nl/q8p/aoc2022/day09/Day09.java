@@ -5,7 +5,6 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 public class Day09 implements Day {
@@ -36,22 +35,13 @@ public class Day09 implements Day {
                     newRope = ropes.get(i);
 
                     var directionToNewHead = newHead.direction(newRope);
-                    if ((directionToNewHead.horizontal >= 1 && directionToNewHead.vertical > 1) || (directionToNewHead.horizontal > 1 && directionToNewHead.vertical == 1)) {
-                        newRope = newRope.move(new Direction(1, 1));
-                    } else if ((directionToNewHead.horizontal >= 1 && directionToNewHead.vertical < -1) || (directionToNewHead.horizontal > 1 && directionToNewHead.vertical == -1)) {
-                        newRope = newRope.move(new Direction(1, -1));
-                    } else if ((directionToNewHead.horizontal <= -1 && directionToNewHead.vertical > 1) || (directionToNewHead.horizontal < -1 && directionToNewHead.vertical == 1)) {
-                        newRope = newRope.move(new Direction(-1, 1));
-                    } else if ((directionToNewHead.horizontal <= -1 && directionToNewHead.vertical < -1) || (directionToNewHead.horizontal < -1 && directionToNewHead.vertical == -1)) {
-                        newRope = newRope.move(new Direction(-1, -1));
-                    } else if (directionToNewHead.horizontal > 1) {
-                        newRope = newRope.move(new Direction(1, 0));
-                    } else if (directionToNewHead.horizontal < -1) {
-                        newRope = newRope.move(new Direction(-1, 0));
-                    } else if (directionToNewHead.vertical > 1) {
-                        newRope = newRope.move(new Direction(0, 1));
-                    } else if (directionToNewHead.vertical < -1) {
-                        newRope = newRope.move(new Direction(0, -1));
+                    var normalizedDirectionToNewHead = directionToNewHead.normalized();
+                    if (!normalizedDirectionToNewHead.equals(directionToNewHead)) {
+                        if (normalizedDirectionToNewHead.isDiagonal()) {
+                            newRope = newRope.move(normalizedDirectionToNewHead);
+                        } else {
+                            newRope = newRope.move(direction);
+                        }
                     }
                 }
 
@@ -66,7 +56,19 @@ public class Day09 implements Day {
         }
     }
 
-    record Direction(int horizontal, int vertical) { }
+    record Direction(int horizontal, int vertical) {
+        Direction normalized() {
+            return new Direction(normalized(horizontal), normalized(vertical));
+        }
+
+        private boolean isDiagonal() {
+            return horizontal != 0 || vertical != 0;
+        }
+
+        private static int normalized(int value) {
+            return Integer.compare(value, 0);
+        }
+    }
 
     enum Move {
         R(new Direction(1, 0)),
