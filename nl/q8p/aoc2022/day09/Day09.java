@@ -31,10 +31,10 @@ public class Day09 implements Day {
                 if (i == 0) {
                     newRope = ropes.get(0).move(direction);
                 } else {
-                    var newHead = newRopes.get(i - 1);
                     newRope = ropes.get(i);
 
-                    var directionToNewHead = newHead.direction(newRope);
+                    var newPredecessor = newRopes.get(i - 1);
+                    var directionToNewHead = newPredecessor.direction(newRope);
                     var normalizedDirectionToNewHead = directionToNewHead.normalized();
                     if (!normalizedDirectionToNewHead.equals(directionToNewHead)) {
                         if (normalizedDirectionToNewHead.isDiagonal()) {
