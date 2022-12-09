@@ -2,6 +2,7 @@ package nl.q8p.aoc2022;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -35,8 +36,9 @@ public class Main {
 
     public void run() {
         loadDays()
-                .stream().filter((day -> filter == null || day.getClass().getSimpleName().matches(filter)))
-                .forEach((day -> new DayRunner(day).run()));
+                .stream().flatMap(day -> Arrays.stream(DayRunner.AssignmentType.values()).map(assignmentType -> new DayRunner(day, assignmentType)))
+                .filter((dayRunner -> filter == null || (dayRunner.day().getClass().getSimpleName() + "#" + dayRunner.assignmentType().name()).matches(filter)))
+                .forEach((DayRunner::run));
     }
 
     private static List<Day> loadDays() {
