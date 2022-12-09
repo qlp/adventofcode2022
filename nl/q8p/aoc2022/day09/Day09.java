@@ -3,38 +3,66 @@ package nl.q8p.aoc2022.day09;
 import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
-import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 public class Day09 implements Day {
 
     record Position(int row, int column) {
         Position move(Direction direction) {
-            return new Position(row + direction.horizontal, column + direction.vertical);
+            return new Position(row + direction.vertical, column + direction.horizontal);
         }
 
         Direction direction(Position other) {
-            return new Direction(row - other.row, column - other.column);
+            return new Direction(column - other.column, row - other.row);
         }
     }
 
-    record Plank(Position head, Position tail) {
-        Plank() {
-            this(new Position(0, 0), new Position(0, 0));
+    record Plank(List<Position> ropes) {
+        Plank(int ropeCount) {
+            this(IntStream.range(0, ropeCount).mapToObj(i -> new Position(0, 0)).toList());
         }
 
         Plank move(Direction direction) {
-            var newHead = head.move(direction);
+            var newRopes = new LinkedList<Position>();
+            IntStream.range(0, ropes.size()).forEach(i -> {
+                Position newRope;
+                if (i == 0) {
+                    newRope = ropes.get(0).move(direction);
+                } else {
+                    var newHead = newRopes.get(i - 1);
+                    newRope = ropes.get(i);
 
-            var directionToNewHead = newHead.direction(tail);
+                    var directionToNewHead = newHead.direction(newRope);
+                    if ((directionToNewHead.horizontal >= 1 && directionToNewHead.vertical > 1) || (directionToNewHead.horizontal > 1 && directionToNewHead.vertical == 1)) {
+                        newRope = newRope.move(new Direction(1, 1));
+                    } else if ((directionToNewHead.horizontal >= 1 && directionToNewHead.vertical < -1) || (directionToNewHead.horizontal > 1 && directionToNewHead.vertical == -1)) {
+                        newRope = newRope.move(new Direction(1, -1));
+                    } else if ((directionToNewHead.horizontal <= -1 && directionToNewHead.vertical > 1) || (directionToNewHead.horizontal < -1 && directionToNewHead.vertical == 1)) {
+                        newRope = newRope.move(new Direction(-1, 1));
+                    } else if ((directionToNewHead.horizontal <= -1 && directionToNewHead.vertical < -1) || (directionToNewHead.horizontal < -1 && directionToNewHead.vertical == -1)) {
+                        newRope = newRope.move(new Direction(-1, -1));
+                    } else if (directionToNewHead.horizontal > 1) {
+                        newRope = newRope.move(new Direction(1, 0));
+                    } else if (directionToNewHead.horizontal < -1) {
+                        newRope = newRope.move(new Direction(-1, 0));
+                    } else if (directionToNewHead.vertical > 1) {
+                        newRope = newRope.move(new Direction(0, 1));
+                    } else if (directionToNewHead.vertical < -1) {
+                        newRope = newRope.move(new Direction(0, -1));
+                    }
+                }
 
-            var newTail = tail;
-            if (Math.abs(directionToNewHead.horizontal) > 1 || Math.abs(directionToNewHead.vertical) > 1) {
-                newTail = head;
-            }
+                newRopes.add(newRope);
+            });
 
-            return new Plank(newHead, newTail);
+            return new Plank(newRopes);
+        }
+
+        Position tail() {
+            return ropes.get(ropes.size() - 1);
         }
     }
 
@@ -55,24 +83,26 @@ public class Day09 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
-            var history = new LinkedList<Plank>();
-            history.add(new Plank());
-
-            for (String line : input.split("\\n")) {
-                String[] parts = line.split(" ");
-                var direction = Move.valueOf(parts[0]).direction;
-                var steps = Integer.parseInt(parts[1]);
-
-                IntStream.range(0, steps).forEach(s -> history.add(history.getLast().move(direction)));
-            }
-
-            return history.stream().map(Plank::tail).distinct().count();
-        };
+        return input -> tailPositionCount(input, 2);
     }
 
     @Override
     public Assignment second() {
-        return input -> "";
+        return input -> tailPositionCount(input, 10);
+    }
+
+    private static long tailPositionCount(String input, int ropeCount) {
+        var history = new LinkedList<Plank>();
+        history.add(new Plank(ropeCount));
+
+        for (String line : input.split("\\n")) {
+            String[] parts = line.split(" ");
+            var direction = Move.valueOf(parts[0]).direction;
+            var steps = Integer.parseInt(parts[1]);
+
+            IntStream.range(0, steps).forEach(s -> history.add(history.getLast().move(direction)));
+        }
+
+        return history.stream().map(Plank::tail).distinct().count();
     }
 }
