@@ -62,7 +62,7 @@ public class Day09 implements Day {
         }
 
         private boolean isDiagonal() {
-            return horizontal != 0 || vertical != 0;
+            return horizontal != 0 && vertical != 0;
         }
 
         private static int normalized(int value) {
