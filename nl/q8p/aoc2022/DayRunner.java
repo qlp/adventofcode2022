@@ -4,26 +4,21 @@ import java.io.*;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-import static nl.q8p.aoc2022.DayRunner.AssignmentType.FIRST;
-import static nl.q8p.aoc2022.DayRunner.AssignmentType.SECOND;
-
-public class DayRunner {
-    private final Day day;
-
-    private final Logger log = Logger.getLogger(DayRunner.class.getName());
+public record DayRunner(Day day, AssignmentType assignmentType) {
+    private static final Logger log = Logger.getLogger(DayRunner.class.getName());
 
     enum AssignmentType {
         FIRST, SECOND
     }
 
-    public DayRunner(Day day) {
-        this.day = day;
-    }
-
     void run() {
         try {
-            printAssignment(FIRST, day.first());
-            printAssignment(SECOND, day.second());
+            printAssignment(
+                switch (assignmentType) {
+                    case FIRST -> day.first();
+                    case SECOND -> day.second();
+                }
+            );
         } catch (final Exception exception) {
             printException(exception);
         }
@@ -35,7 +30,7 @@ public class DayRunner {
         printSeparator();
     }
 
-    private void printAssignment(final AssignmentType assignmentType, final Assignment assignment) {
+    private void printAssignment(final Assignment assignment) {
         printHeader(assignmentType);
         try {
             final var assignmentData = readAssignmentData(assignmentType);
