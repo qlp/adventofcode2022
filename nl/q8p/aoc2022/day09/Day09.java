@@ -66,7 +66,8 @@ public class Day09 implements Day {
         }
 
         private static int normalized(int value) {
-            return Integer.compare(value, 0);
+            return Integer.compare(value, 0); // suggestion by IntelliJ: not the best suggestion IMO, because Java
+            // documentation does not specify that result is always -1, 0, -1.
         }
     }
 
