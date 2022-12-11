@@ -5,52 +5,30 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.stream.Collector;
+import java.util.stream.IntStream;
 
 public class Day10 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
-            var cpu = cpu(input);
-
-            var total = 0;
-
-            for (int i = 20; i <= 220; i += 40) {
-                total += i * cpu.get(i - 1);
-            }
-
-            return total;
-        };
+        return input -> IntStream.range(0, 6).map(i -> (i * 40 + 20) * cpu(input).get((i * 40 + 20) - 1)).sum();
     }
 
     @Override
     public Assignment second() {
-        return input -> {
-            var cpu = cpu(input);
+        return input -> String.join("\n", IntStream.rangeClosed(1, 240).mapToObj(cycle -> {
+            var position = (cycle - 1) % 40;
 
-            var output = new StringBuilder();
+            var x = cpu(input).get(cycle - 1);
 
-            for (var cycle = 1; cycle <= 240; cycle++) {
-                var position = (cycle - 1) % 40;
-
-                if (cycle != 1 && position == 0) {
-                    output.append('\n');
-                }
-
-                var x = cpu.get(cycle - 1);
-
-                if (position >= x - 1 && position <= x + 1) {
-                    output.append('#');
-                } else {
-                    output.append('.');
-                }
-
-            }
-
-            return output.toString();
-        };
+            return IntStream.rangeClosed(x - 1, x + 1).anyMatch(i -> i == position) ? '#' : '.';
+        }).collect(Collector.of(
+                StringBuilder::new,
+                StringBuilder::append,
+                StringBuilder::append,
+                StringBuilder::toString)).split("(?<=\\G.{" + 40 + "})"));
     }
-
 
     private static ArrayList<Integer> cpu(String input) {
         var x = 1;
@@ -65,7 +43,6 @@ public class Day10 implements Day {
                 output.add(x);
                 x += Integer.parseInt(instruction.split(" ")[1]);
             }
-
         }
         output.add(x);
         return output;
