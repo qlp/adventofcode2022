@@ -7,17 +7,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.Comparator.comparingInt;
 
 public class Day12 implements Day {
 
     static class HeightMap {
-        private final int[][] data;
+        private final char[][] data;
 
-        HeightMap(int[][] data) {
+        HeightMap(char[][] data) {
             this.data = data;
         }
 
@@ -29,12 +31,68 @@ public class Day12 implements Day {
             return data.length;
         }
 
-        int elevation(Position position) {
+        int value(Position position) {
             return data[position.y][position.x];
         }
 
-        boolean exists(Position from, Position to) {
+        int elevation(Position position) {
+            return switch (value(position)) {
+                case 'S' -> 0;
+                case 'E' -> 26;
+                default -> value(position) - 'a';
+            };
+        }
+
+        Stream<Position> positions() {
+            return IntStream.range(0, height())
+                    .boxed()
+                    .flatMap(y -> IntStream.range(0, width()).mapToObj(x -> new Position(x, y)));
+        }
+
+        List<Position> positionsOnGroundLevel() {
+            return positions().filter(p -> elevation(p) == 0).toList();
+        }
+
+        Position start() {
+            return getPositionsWithValue('S').findFirst().orElseThrow();
+        }
+
+        Position end() {
+            return getPositionsWithValue('E').findFirst().orElseThrow();
+        }
+
+        private Stream<Position> getPositionsWithValue(char value) {
+            return positions().filter(p -> value(p) == value);
+        }
+
+        boolean allowed(Position from, Position to) {
             return to.x >= 0 && to.x < width() && to.y >= 0 && to.y < height() && ((elevation(to) - elevation(from)) <= 1);
+        }
+
+        Optional<Route> route(List<Position> startingPoints) {
+            var routeToDestination = new HashMap<>(startingPoints.stream().collect(Collectors.toMap(s -> s, s -> new Route(List.of(s)))));
+
+            boolean foundNewPaths;
+
+            do {
+                foundNewPaths = false;
+
+                for (var route : new ArrayList<>(routeToDestination.values())) {
+                    for (var move : route.end().moves().stream().filter(move -> allowed(route.end(), move)).toList()) {
+                        var existingPath = routeToDestination.get(move);
+
+                        if (existingPath == null || existingPath.path.size() > (route.path.size() + 1)) {
+                            foundNewPaths = true;
+
+                            routeToDestination.put(move, new Route(Stream.concat(route.path.stream(), Stream.of(move)).toList()));
+                        }
+                    }
+                }
+            } while (foundNewPaths);
+
+            return routeToDestination.values().stream()
+                    .filter(route -> route.end().equals(end()))
+                    .min(comparingInt(route -> route.path.size()));
         }
     }
 
@@ -50,128 +108,34 @@ public class Day12 implements Day {
     }
 
     record Route(List<Position> path) {
-        Position destination() {
+        Position end() {
             return path.get(path.size() - 1);
         }
     }
 
-    record Me(HeightMap map, Position current, Position target) {
-
-        @Override
-        public String toString() {
-            var buffer = new StringBuilder();
-
-            buffer.append("map: \n");
-            for (var y = 0; y < map.height(); y++) {
-                for (var x = 0; x < map.width(); x++) {
-                    var position = new Position(x, y);
-
-                    char representation;
-                    if (current.equals(position)) {
-                        representation = 'S';
-                    } else if (target.equals(position)) {
-                        representation = 'E';
-                    } else {
-                        representation = (char)('a' + map.elevation(position));
-                    }
-
-                    buffer.append(representation);
-                }
-                buffer.append("\n");
-            }
-
-            return buffer.toString();
-        }
-
-        Optional<Route> route() {
-            Map<Position, Route> routeToDestination = new HashMap<>();
-
-            routeToDestination.put(current, new Route(List.of(current)));
-
-            boolean foundNewPaths;
-
-            do {
-                foundNewPaths = false;
-
-                for (var route : new ArrayList<>(routeToDestination.values())) {
-                    for (var move : route.destination().moves().stream().filter(move -> map.exists(route.destination(), move)).toList()) {
-                        var existingPath = routeToDestination.get(move);
-
-                        if (existingPath == null || existingPath.path.size() > (route.path.size() + 1)) {
-                            foundNewPaths = true;
-
-                            var newPath = new ArrayList<>(route.path);
-                            newPath.add(move);
-
-                            routeToDestination.put(move, new Route(newPath));
-                        }
-                    }
-                }
-            } while (foundNewPaths);
-
-            return routeToDestination.values().stream()
-                    .filter(route -> route.destination().equals(target))
-                    .min(comparingInt(route -> route.path.size()));
-        }
-    }
-
-
     @Override
     public Assignment first() {
         return input -> {
-            var lines = input.split("\\n");
+            var heightMap = getHeightMap(input);
 
-            var heightMap = new HeightMap(Arrays.stream(lines)
-                    .map(l -> l.replace('S', 'a').replace('E', 'z').chars().map(c -> c - 'a').toArray())
-                    .toArray(int[][]::new));
+            var route = heightMap.route(List.of(heightMap.start())).orElseThrow();
 
-            Position current = null;
-            Position target = null;
-
-            for (int y = 0; y < lines.length; y++) {
-                for (int x = 0; x < lines[y].length(); x++) {
-                    switch (lines[y].charAt(x)) {
-                        case 'S' -> current = new Position(x, y);
-                        case 'E' -> target = new Position(x, y);
-                    }
-                }
-            }
-
-            var me = new Me(heightMap, current, target);
-
-            return me.route().orElseThrow().path.size() - 1;
+            return route.path.size() - 1;
         };
+    }
+
+    private static HeightMap getHeightMap(String input) {
+        return new HeightMap(Arrays.stream(input.split("\\n")).map(String::toCharArray).toArray(char[][]::new));
     }
 
     @Override
     public Assignment second() {
         return input -> {
-            var lines = input.split("\\n");
+            var heightMap = getHeightMap(input);
 
-            var heightMap = new HeightMap(Arrays.stream(lines)
-                    .map(l -> l.replace('S', 'a').replace('E', 'z').chars().map(c -> c - 'a').toArray())
-                    .toArray(int[][]::new));
+            var route = heightMap.route(heightMap.positionsOnGroundLevel()).orElseThrow();
 
-            Position target = null;
-
-            List<Position> low = new ArrayList<>();
-
-            for (int y = 0; y < lines.length; y++) {
-                for (int x = 0; x < lines[y].length(); x++) {
-                    switch (lines[y].charAt(x)) {
-                        case 'S', 'a' -> low.add(new Position(x, y));
-                        case 'E' -> target = new Position(x, y);
-                    }
-                }
-            }
-
-            Position finalTarget = target;
-            return low.stream()
-                    .map(r -> new Me(heightMap, r, finalTarget).route())
-                    .filter(Optional::isPresent)
-                    .mapToInt(r -> r.get().path.size())
-                    .min()
-                    .orElseThrow() - 1;
+            return route.path.size() - 1;
         };
     }
 
