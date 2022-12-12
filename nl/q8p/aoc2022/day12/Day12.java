@@ -78,13 +78,13 @@ public class Day12 implements Day {
                 foundNewPaths = false;
 
                 for (var route : new ArrayList<>(routeToDestination.values())) {
-                    for (var move : route.end().moves().stream().filter(move -> allowed(route.end(), move)).toList()) {
+                    for (var move : route.end().moves().filter(move -> allowed(route.end(), move)).toList()) {
                         var existingPath = routeToDestination.get(move);
 
                         if (existingPath == null || existingPath.path.size() > (route.path.size() + 1)) {
                             foundNewPaths = true;
 
-                            routeToDestination.put(move, new Route(Stream.concat(route.path.stream(), Stream.of(move)).toList()));
+                            routeToDestination.put(move, route.withPosition(move));
                         }
                     }
                 }
@@ -97,8 +97,8 @@ public class Day12 implements Day {
     }
 
     record Position(int x, int y) {
-        List<Position> moves() {
-            return List.of(
+        Stream<Position> moves() {
+            return Stream.of(
                     new Position(x - 1, y),
                     new Position(x + 1, y),
                     new Position(x, y - 1),
@@ -111,12 +111,20 @@ public class Day12 implements Day {
         Position end() {
             return path.get(path.size() - 1);
         }
+
+        Route withPosition(Position position) {
+            return new Route(Stream.concat(path.stream(), Stream.of(position)).toList());
+        }
+    }
+
+    private static HeightMap parseHeightMap(String input) {
+        return new HeightMap(Arrays.stream(input.split("\\n")).map(String::toCharArray).toArray(char[][]::new));
     }
 
     @Override
     public Assignment first() {
         return input -> {
-            var heightMap = getHeightMap(input);
+            var heightMap = parseHeightMap(input);
 
             var route = heightMap.route(List.of(heightMap.start())).orElseThrow();
 
@@ -124,14 +132,10 @@ public class Day12 implements Day {
         };
     }
 
-    private static HeightMap getHeightMap(String input) {
-        return new HeightMap(Arrays.stream(input.split("\\n")).map(String::toCharArray).toArray(char[][]::new));
-    }
-
     @Override
     public Assignment second() {
         return input -> {
-            var heightMap = getHeightMap(input);
+            var heightMap = parseHeightMap(input);
 
             var route = heightMap.route(heightMap.positionsOnGroundLevel()).orElseThrow();
 
