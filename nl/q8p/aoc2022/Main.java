@@ -55,7 +55,7 @@ public class Main {
 
                 if (candidate instanceof Day day) {
                     days.add(day);
-                    log.info(() -> "Day" + dayNumberString + " is found");
+                    log.fine(() -> "Day" + dayNumberString + " is found");
                 } else {
                     log.warning(() -> "Day" + dayNumberString + " is not a Day");
                 }
