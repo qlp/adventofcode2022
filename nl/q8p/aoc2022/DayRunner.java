@@ -1,11 +1,14 @@
 package nl.q8p.aoc2022;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -54,7 +57,7 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
     private void run(final Assignment assignment, final AssignmentData assignmentData) {
         try {
             final var actual = run(() -> assignment.run(assignmentData.example).toString());
-            log.info(() -> rightAlign("  EXAMPLE  : " + actual, actual.nanosAsMs()));
+            logResult(actual, "EXAMPLE");
             if (!actual.result.equals(assignmentData.expected)) {
                 log.info(() -> "  EXPECTING: " + assignmentData.expected);
             }
@@ -65,10 +68,26 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
 
         try {
             final var actual = run(() -> assignment.run(assignmentData.real).toString());
-            log.info(() -> rightAlign("  REAL     : " + actual, actual.nanosAsMs()));
+            logResult(actual, "REAL");
         } catch (final Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
             exception.printStackTrace();
+        }
+    }
+
+    private void logResult(Duration<String> duration, String phase) {
+        var prefex = "  " + phase + " ".repeat(10 - phase.length()) + ": ";
+        var suffix = duration.nanosAsMs();
+
+        var shouldLogSeparateLines = duration.result.contains("\n") || duration.result.length() > (WIDTH - prefex.length() - suffix.length() - 5);
+
+        if (shouldLogSeparateLines) {
+            var outputWidth = Arrays.stream(duration.result.split("\n")).mapToInt(String::length).max().orElseThrow();
+            var outputSeparator = "=".repeat(outputWidth);
+
+            log.info(() -> rightAlign(prefex, suffix) + "\n" + outputSeparator + "\n" + duration.result + "\n" + outputSeparator);
+        } else {
+            log.info(() -> rightAlign(prefex + duration.result, suffix));
         }
     }
 
