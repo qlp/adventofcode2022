@@ -5,18 +5,14 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import java.util.Optional;
 
 import static java.util.Comparator.comparingInt;
 
 public class Day12 implements Day {
-
-    private static final Logger LOG = Logger.getLogger(Day12.class.getName());
 
     static class HeightMap {
         private final int[][] data;
@@ -87,7 +83,7 @@ public class Day12 implements Day {
             return buffer.toString();
         }
 
-        Route route() {
+        Optional<Route> route() {
             Map<Position, Route> routeToDestination = new HashMap<>();
 
             routeToDestination.put(current, new Route(List.of(current)));
@@ -115,8 +111,7 @@ public class Day12 implements Day {
 
             return routeToDestination.values().stream()
                     .filter(route -> route.destination().equals(target))
-                    .min(comparingInt(route -> route.path.size()))
-                    .orElseThrow();
+                    .min(comparingInt(route -> route.path.size()));
         }
     }
 
@@ -144,13 +139,40 @@ public class Day12 implements Day {
 
             var me = new Me(heightMap, current, target);
 
-            return me.route().path.size() - 1;
+            return me.route().orElseThrow().path.size() - 1;
         };
     }
 
     @Override
     public Assignment second() {
-        return input -> "";
+        return input -> {
+            var lines = input.split("\\n");
+
+            var heightMap = new HeightMap(Arrays.stream(lines)
+                    .map(l -> l.replace('S', 'a').replace('E', 'z').chars().map(c -> c - 'a').toArray())
+                    .toArray(int[][]::new));
+
+            Position target = null;
+
+            List<Position> low = new ArrayList<>();
+
+            for (int y = 0; y < lines.length; y++) {
+                for (int x = 0; x < lines[y].length(); x++) {
+                    switch (lines[y].charAt(x)) {
+                        case 'S', 'a' -> low.add(new Position(x, y));
+                        case 'E' -> target = new Position(x, y);
+                    }
+                }
+            }
+
+            Position finalTarget = target;
+            return low.stream()
+                    .map(r -> new Me(heightMap, r, finalTarget).route())
+                    .filter(Optional::isPresent)
+                    .mapToInt(r -> r.get().path.size())
+                    .min()
+                    .orElseThrow() - 1;
+        };
     }
 
 
