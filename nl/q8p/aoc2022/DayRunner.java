@@ -46,9 +46,11 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
 
     private void run(final Assignment assignment, final AssignmentData assignmentData) {
         try {
+            var start = System.nanoTime();
             final var actual = assignment.run(assignmentData.example).toString();
+            var duration = System.nanoTime() - start;
 
-            log.info(() -> "  EXAMPLE  : " + actual);
+            log.info(() -> "  EXAMPLE  : " + actual + " (" + (double)duration / 1_000_000 + "ms)");
             if (!actual.equals(assignmentData.expected)) {
                 log.info(() -> "  EXPECTING: " + assignmentData.expected);
             }
@@ -58,8 +60,10 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         }
 
         try {
+            var start = System.nanoTime();
             final var actual = assignment.run(assignmentData.real).toString();
-            log.info(() -> "  REAL     : " + actual);
+            var duration = System.nanoTime() - start;
+            log.info(() -> "  REAL     : " + actual + " (" + (double)duration / 1_000_000 + "ms)");
         } catch (final Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
             exception.printStackTrace();
