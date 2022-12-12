@@ -1,11 +1,18 @@
 package nl.q8p.aoc2022;
 
 import java.io.*;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 public record DayRunner(Day day, AssignmentType assignmentType) {
     private static final Logger log = Logger.getLogger(DayRunner.class.getName());
+
+    private static final int WIDTH = 70;
 
     enum AssignmentType {
         FIRST, SECOND
@@ -46,12 +53,9 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
 
     private void run(final Assignment assignment, final AssignmentData assignmentData) {
         try {
-            var start = System.nanoTime();
-            final var actual = assignment.run(assignmentData.example).toString();
-            var duration = System.nanoTime() - start;
-
-            log.info(() -> "  EXAMPLE  : " + actual + " (" + (double)duration / 1_000_000 + "ms)");
-            if (!actual.equals(assignmentData.expected)) {
+            final var actual = run(() -> assignment.run(assignmentData.example).toString());
+            log.info(() -> rightAlign("  EXAMPLE  : " + actual, actual.nanosAsMs()));
+            if (!actual.result.equals(assignmentData.expected)) {
                 log.info(() -> "  EXPECTING: " + assignmentData.expected);
             }
         } catch (final Exception exception) {
@@ -60,10 +64,8 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         }
 
         try {
-            var start = System.nanoTime();
-            final var actual = assignment.run(assignmentData.real).toString();
-            var duration = System.nanoTime() - start;
-            log.info(() -> "  REAL     : " + actual + " (" + (double)duration / 1_000_000 + "ms)");
+            final var actual = run(() -> assignment.run(assignmentData.real).toString());
+            log.info(() -> rightAlign("  REAL     : " + actual, actual.nanosAsMs()));
         } catch (final Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
             exception.printStackTrace();
@@ -110,7 +112,11 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
     }
 
     private void printSeparator() {
-        log.info(() -> "---------------------------------------------------------------------------");
+        log.info(() -> "-".repeat(WIDTH));
+    }
+
+    private String rightAlign(String line, String rightAligned) {
+        return line + " ".repeat(Math.max(1, WIDTH - line.length() - rightAligned.length())) + rightAligned;
     }
 
     private void printException(Exception exception) {
@@ -118,5 +124,24 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         log.severe(() -> day.getClass().getSimpleName() + ": cannot create assignment: " + exception);
         exception.printStackTrace();
         printSeparator();
+    }
+
+    record Duration<T>(T result, long nanos) {
+        public String nanosAsMs() {
+            return new DecimalFormat("#0.00 ms", new DecimalFormatSymbols(Locale.US)).format(((double)nanos) / 1_000_000);
+        }
+
+        @Override
+        public String toString() {
+            return result.toString();
+        }
+    }
+
+    private <T> Duration<T> run(Supplier<T> function) {
+        long start = System.nanoTime();
+        T result = function.get();
+        long nanos = System.nanoTime() - start;
+
+        return new Duration<>(result, nanos);
     }
 }
