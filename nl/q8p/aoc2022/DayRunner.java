@@ -59,7 +59,7 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
             final var actual = run(() -> assignment.run(assignmentData.example).toString());
             logResult(actual, "EXAMPLE");
             if (!actual.result.equals(assignmentData.expected)) {
-                log.info(() -> "  EXPECTING: " + assignmentData.expected);
+                log.info(() -> "  EXPECTING : " + assignmentData.expected);
             }
         } catch (final Exception exception) {
             log.info(() -> "  EXAMPLE  : EXCEPTION: " + exception.getMessage());
