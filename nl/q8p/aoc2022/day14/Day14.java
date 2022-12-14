@@ -5,19 +5,14 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Logger;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Day14 implements Day {
 
-    private static Logger LOG = Logger.getLogger(Day14.class.getName());
-
     enum Tile {
-        air,
-        sand,
-        rock
+        AIR,
+        SAND,
+        ROCK
     }
 
     record Point(int x, int y) {
@@ -46,24 +41,8 @@ public class Day14 implements Day {
     }
 
     record Paths(List<Path> paths) {
-        int width() {
-            return (maxX() - minX() + 1);
-        }
-
-        int heigth() {
-            return maxY() - minY() + 1;
-        }
-
-        private int minX() {
-            return paths.stream().mapToInt(path -> path.points.stream().mapToInt(point -> point.x).min().orElseThrow()).min().orElseThrow();
-        }
-
-        private int maxX() {
-            return paths.stream().mapToInt(path -> path.points.stream().mapToInt(point -> point.x).max().orElseThrow()).max().orElseThrow();
-        }
-
-        private int minY() {
-            return 0;
+        int height() {
+            return maxY() + 1;
         }
 
         private int maxY() {
@@ -76,19 +55,19 @@ public class Day14 implements Day {
     }
 
     static class Cave {
+        public static final int WIDTH = 1000;
         private final Tile[][] tiles;
 
-        private final int offsetX;
+        Cave(Tile[][] tiles) {
+            this.tiles = tiles;
+        }
 
         Cave(Paths paths) {
-            tiles = new Tile[paths.heigth()][];
+            tiles = new Tile[paths.height()][];
 
-            var width = 1000;
-            offsetX = 0;
-
-            IntStream.range(0, paths.heigth()).forEach(y -> {
-                tiles[y] = IntStream.range(0, width).mapToObj(x -> Tile.air).toArray(Tile[]::new);
-            });
+            IntStream.range(0, paths.height()).forEach(y ->
+                    tiles[y] = IntStream.range(0, WIDTH).mapToObj(x -> Tile.AIR).toArray(Tile[]::new)
+            );
 
             paths.paths.forEach(path -> {
                 Point previous = null;
@@ -98,7 +77,7 @@ public class Day14 implements Day {
                         final Point from = previous;
                         IntStream.rangeClosed(Math.min(from.x, point.x), Math.max(from.x, point.x)).forEach(x ->
                                 IntStream.rangeClosed(Math.min(from.y, point.y), Math.max(from.y, point.y)).forEach(y ->
-                                        set(x, y, Tile.rock)
+                                        set(x, y, Tile.ROCK)
                                 )
                         );
                     }
@@ -107,8 +86,18 @@ public class Day14 implements Day {
             });
         }
 
+        Cave withFloor() {
+            var newTiles = new Tile[tiles.length + 2][];
+            IntStream.range(0, tiles.length).forEach(y -> newTiles[y] = tiles[y]);
+
+            newTiles[tiles.length] = IntStream.range(0, tiles[0].length).mapToObj(x -> Tile.AIR).toArray(Tile[]::new);
+            newTiles[tiles.length + 1] = IntStream.range(0, tiles[0].length).mapToObj(x -> Tile.ROCK).toArray(Tile[]::new);
+
+            return new Cave(newTiles);
+        }
+
         void set(int x, int y, Tile tile) {
-            tiles[y][x - offsetX] = tile;
+            tiles[y][x] = tile;
         }
 
         Tile get(Point point) {
@@ -116,11 +105,16 @@ public class Day14 implements Day {
         }
 
         Tile get(int x, int y) {
-            return tiles[y][x - offsetX];
+            return tiles[y][x];
         }
 
         boolean addSand() {
             var previousPoint = new Point(500, 0);
+
+            if (get(previousPoint) != Tile.AIR) {
+                return false;
+            }
+
             Point nextPoint = null;
             do {
                 if (nextPoint != null) {
@@ -133,7 +127,7 @@ public class Day14 implements Day {
                 return false;
             }
 
-            set(nextPoint.x, nextPoint.y, Tile.sand);
+            set(nextPoint.x, nextPoint.y, Tile.SAND);
 
             return true;
         }
@@ -143,29 +137,15 @@ public class Day14 implements Day {
                 return null;
             }
 
-            if (get(from.below()) == Tile.air) {
+            if (get(from.below()) == Tile.AIR) {
                 return from.below();
-            } else if (get(from.leftBelow()) == Tile.air) {
+            } else if (get(from.leftBelow()) == Tile.AIR) {
                 return from.leftBelow();
-            } else if (get(from.rightBelow()) == Tile.air) {
+            } else if (get(from.rightBelow()) == Tile.AIR) {
                 return from.rightBelow();
             } else {
                 return from;
             }
-        }
-
-
-        @Override
-        public String toString() {
-            return Arrays.stream(tiles).map(row -> Arrays.stream(row).map(tile -> switch(tile) {
-                case air -> '.';
-                case rock -> '#';
-                case sand -> 'O';
-            }).collect(Collector.of(
-                    StringBuilder::new,
-                    StringBuilder::append,
-                    StringBuilder::append,
-                    StringBuilder::toString))).collect(Collectors.joining("\n"));
         }
 
         static Cave parse(String string) {
@@ -182,8 +162,6 @@ public class Day14 implements Day {
 
             while(cave.addSand()) {
                 sandAdded++;
-//                LOG.info("cave:");
-//                LOG.info("\n" + cave);
             }
 
             return sandAdded;
@@ -192,6 +170,16 @@ public class Day14 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> "";
+        return input -> {
+            var cave = Cave.parse(input).withFloor();
+
+            int sandAdded = 0;
+
+            while(cave.addSand()) {
+                sandAdded++;
+            }
+
+            return sandAdded;
+        };
     }
 }
