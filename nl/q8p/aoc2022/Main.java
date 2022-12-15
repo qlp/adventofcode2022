@@ -16,6 +16,7 @@ public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class.getName());
 
     private final String assignmentFilter;
+
     private final String runFilter;
 
     public Main(String assignmentFilter, String runFilter) {
