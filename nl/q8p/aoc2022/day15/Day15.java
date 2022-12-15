@@ -3,16 +3,13 @@ package nl.q8p.aoc2022.day15;
 import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
-import java.util.stream.IntStream;
 
 public class Day15 implements Day {
-
-    private static final Logger LOG = Logger.getLogger(Day15.class.getName());
 
     record Point(int x, int y) {
         int distanceTo(Point other) {
@@ -43,6 +40,10 @@ public class Day15 implements Day {
                 Point.parse(string.substring(string.indexOf("closest beacon is at ") + "closest beacon is at ".length()))
             );
         }
+
+        public int lastCoveredXAt(int y) {
+            return position.x + distanceToBeacon() - Math.abs(position.y - y);
+        }
     }
 
     enum Thing {
@@ -67,36 +68,41 @@ public class Day15 implements Day {
             return new World(Arrays.stream(string.split("\n")).map(Sensor::parse).toList());
         }
 
-        Thing thingAt(Point point) {
-            return things.get(point);
-        }
-
         boolean hasCoverage(Point point) {
             return !things.containsKey(point) && sensors.stream().anyMatch(s -> s.covers(point));
         }
 
-        char charOf(Point point) {
-            var thing = thingAt(point);
-            if (thing != null) {
-                return switch (thing) {
-                    case BEACON -> 'B';
-                    case SENSOR -> 'S';
-                };
-            } else {
-                return hasCoverage(point) ? '#' : '.';
-            }
+        boolean isUncovered(Point point) {
+            return !things.containsKey(point) && sensors.stream().noneMatch(s -> s.covers(point));
         }
 
-        String toString(Point from, Point until) {
-            var result = new StringBuilder();
+        List<Point> uncoveredPointsBetween(Point from, Point until) {
+            var result = new ArrayList<Point>();
 
-            IntStream.rangeClosed(from.y, until.y).forEachOrdered(y -> {
-                IntStream.rangeClosed(from.x, until.x).forEachOrdered(x -> result.append(charOf(new Point(x, y))));
+            var currentX = from.x;
+            var currentY = from.y;
 
-                result.append('\n');
-            });
+            while (currentX <= until.x && currentY <= until.y) {
+                var current = new Point(currentX, currentY);
 
-            return result.toString();
+                if (isUncovered(current)) {
+                    result.add(current);
+                }
+
+                currentX = sensors
+                        .stream()
+                        .filter(s -> s.covers(current))
+                        .mapToInt(s -> s.lastCoveredXAt(current.y) + 1)
+                        .max()
+                        .orElse(Integer.MAX_VALUE);
+
+                if (currentX > until.x) {
+                    currentX = from.x;
+                    currentY++;
+                }
+            }
+
+            return result;
         }
 
         int coveredLinesAtRow(int y) {
@@ -138,14 +144,23 @@ public class Day15 implements Day {
         return input -> {
             var world = World.parse(input);
 
-            LOG.info(() -> "\n" + world.toString(new Point(-4, 0), new Point(25, 22)));
-
             return world.coveredLinesAtRow(10) + ", " + world.coveredLinesAtRow(2000000);
         };
     }
 
     @Override
     public Assignment second() {
-        return input -> "";
+        return input -> {
+            var world = World.parse(input);
+
+            return world.uncoveredPointsBetween(new Point(0, 0), new Point(20, 20))
+                    .stream().mapToLong(p -> (4000000L * p.x) + p.y)
+                    .findFirst()
+                    .orElse(-1) + ", " +
+                world.uncoveredPointsBetween(new Point(0, 0), new Point(4000000, 4000000))
+                    .stream().mapToLong(p -> (4000000L * p.x) + p.y)
+                    .findFirst()
+                    .orElse(-1);
+        };
     }
 }
