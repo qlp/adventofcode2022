@@ -1,5 +1,7 @@
 package nl.q8p.aoc2022;
 
+import nl.q8p.aoc2022.Assignment.Run;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,18 +13,20 @@ import static java.lang.System.err;
 
 public class Main {
 
-    static final Logger log = Logger.getLogger(Main.class.getName());
+    private static final Logger LOG = Logger.getLogger(Main.class.getName());
 
-    final String filter;
+    private final String assignmentFilter;
+    private final String runFilter;
 
-    public Main(String filter) {
-        this.filter = filter;
+    public Main(String assignmentFilter, String runFilter) {
+        this.assignmentFilter = assignmentFilter;
+        this.runFilter = runFilter;
     }
 
     public static void main(String[] args) {
         configureLogging();
 
-        new Main(args.length == 0 ? null : args[0]).run();
+        new Main(args.length < 1 ? null : args[0], args.length < 2 ? null : args[1]).run();
     }
 
     private static void configureLogging() {
@@ -37,8 +41,15 @@ public class Main {
     public void run() {
         loadDays()
                 .stream().flatMap(day -> Arrays.stream(DayRunner.AssignmentType.values()).map(assignmentType -> new DayRunner(day, assignmentType)))
-                .filter((dayRunner -> filter == null || (dayRunner.day().getClass().getSimpleName() + "#" + dayRunner.assignmentType().name()).matches(filter)))
-                .forEach((DayRunner::run));
+                .filter((dayRunner -> assignmentFilter == null || (dayRunner.day().getClass().getSimpleName() + "#" + dayRunner.assignmentType().name()).matches(assignmentFilter)))
+                .forEach(dayRunner -> dayRunner.run(runs()));
+    }
+
+    private List<Run> runs() {
+        return Arrays
+            .stream(Run.values())
+            .filter(run -> runFilter == null || run.name().matches(runFilter))
+            .toList();
     }
 
     private static List<Day> loadDays() {
@@ -55,15 +66,15 @@ public class Main {
 
                 if (candidate instanceof Day day) {
                     days.add(day);
-                    log.fine(() -> "Day" + dayNumberString + " is found");
+                    LOG.fine(() -> "Day" + dayNumberString + " is found");
                 } else {
-                    log.warning(() -> "Day" + dayNumberString + " is not a Day");
+                    LOG.warning(() -> "Day" + dayNumberString + " is not a Day");
                 }
             } catch (final ClassNotFoundException e) {
                 // No class for this day yet.
-                log.fine(() -> "No class '" + className + "' found.");
+                LOG.fine(() -> "No class '" + className + "' found.");
             } catch (final ReflectiveOperationException e) {
-                log.severe(() -> "Day" + dayNumberString + " cannot be created: " + e.getMessage());
+                LOG.severe(() -> "Day" + dayNumberString + " cannot be created: " + e.getMessage());
                 e.printStackTrace();
             }
         }

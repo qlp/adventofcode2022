@@ -141,7 +141,7 @@ public class Day15 implements Day {
 
     @Override
     public Assignment first() {
-        return (run, input) -> World.parse(input).coveredLinesAtRow(switch (run) { case EXAMPLE -> 10; case ACTUAL -> 2000000; });
+        return (run, input) -> World.parse(input).coveredLinesAtRow(switch (run) { case EXAMPLE -> 10; case REAL -> 2000000; });
     }
 
     @Override
@@ -155,7 +155,7 @@ public class Day15 implements Day {
     private int untilCoordinateOfSecondAssignment(Assignment.Run run) {
         return switch (run) {
             case EXAMPLE -> 20;
-            case ACTUAL -> 4000000;
+            case REAL -> 4000000;
         };
     }
 }

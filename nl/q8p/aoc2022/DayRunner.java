@@ -1,5 +1,7 @@
 package nl.q8p.aoc2022;
 
+import nl.q8p.aoc2022.Assignment.Run;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -7,6 +9,7 @@ import java.io.StringWriter;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -21,13 +24,14 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         FIRST, SECOND
     }
 
-    void run() {
+    void run(List<Run> runs) {
         try {
             printAssignment(
                 switch (assignmentType) {
                     case FIRST -> day.first();
                     case SECOND -> day.second();
-                }
+                },
+                runs
             );
         } catch (final Exception exception) {
             printException(exception);
@@ -40,12 +44,12 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         printSeparator();
     }
 
-    private void printAssignment(final Assignment assignment) {
+    private void printAssignment(final Assignment assignment, List<Run> runs) {
         printHeader(assignmentType);
         try {
             final var assignmentData = readAssignmentData(assignmentType);
 
-            run(assignment, assignmentData);
+            run(assignment, runs, assignmentData);
 
 
         } catch (final IOException e) {
@@ -54,24 +58,28 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         }
     }
 
-    private void run(final Assignment assignment, final AssignmentData assignmentData) {
-        try {
-            final var actual = run(() -> assignment.run(Assignment.Run.EXAMPLE, assignmentData.example).toString());
-            logResult(actual, "EXAMPLE");
-            if (!actual.result.equals(assignmentData.expected)) {
-                log.info(() -> "  EXPECTING : " + assignmentData.expected);
+    private void run(final Assignment assignment, final List<Run> runs, final AssignmentData assignmentData) {
+        if (runs.contains(Run.EXAMPLE)) {
+            try {
+                final var actual = run(() -> assignment.run(Run.EXAMPLE, assignmentData.example).toString());
+                logResult(actual, "EXAMPLE");
+                if (!actual.result.equals(assignmentData.expected)) {
+                    log.info(() -> "  EXPECTING : " + assignmentData.expected);
+                }
+            } catch (final Exception exception) {
+                log.info(() -> "  EXAMPLE  : EXCEPTION: " + exception.getMessage());
+                exception.printStackTrace();
             }
-        } catch (final Exception exception) {
-            log.info(() -> "  EXAMPLE  : EXCEPTION: " + exception.getMessage());
-            exception.printStackTrace();
         }
 
-        try {
-            final var actual = run(() -> assignment.run(Assignment.Run.ACTUAL, assignmentData.real).toString());
-            logResult(actual, "REAL");
-        } catch (final Exception exception) {
-            log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
-            exception.printStackTrace();
+        if (runs.contains(Run.REAL)) {
+            try {
+                final var actual = run(() -> assignment.run(Run.REAL, assignmentData.real).toString());
+                logResult(actual, "REAL");
+            } catch (final Exception exception) {
+                log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());
+                exception.printStackTrace();
+            }
         }
     }
 
