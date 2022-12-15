@@ -81,7 +81,7 @@ public class Day05 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
+        return (run, input) -> {
             var supplies = new Supplies9000();
 
             stream(input.split("\\n")).forEach(supplies::handle);
@@ -97,7 +97,7 @@ public class Day05 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> {
+        return (run, input) -> {
             var supplies = new Supplies9001();
 
             stream(input.split("\\n")).forEach(supplies::handle);

@@ -86,12 +86,12 @@ public class Day09 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> tailPositionCount(input, 2);
+        return (run, input) -> tailPositionCount(input, 2);
     }
 
     @Override
     public Assignment second() {
-        return input -> tailPositionCount(input, 10);
+        return (run, input) -> tailPositionCount(input, 10);
     }
 
     private static long tailPositionCount(String input, int ropeCount) {

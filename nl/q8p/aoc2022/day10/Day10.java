@@ -12,12 +12,12 @@ public class Day10 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> IntStream.range(0, 6).map(i -> (i * 40 + 20) * cpu(input).get((i * 40 + 20) - 1)).sum();
+        return (run, input) -> IntStream.range(0, 6).map(i -> (i * 40 + 20) * cpu(input).get((i * 40 + 20) - 1)).sum();
     }
 
     @Override
     public Assignment second() {
-        return input -> String.join("\n", IntStream.rangeClosed(1, 240).mapToObj(cycle -> {
+        return (run, input) -> String.join("\n", IntStream.rangeClosed(1, 240).mapToObj(cycle -> {
             var position = (cycle - 1) % 40;
 
             var x = cpu(input).get(cycle - 1);

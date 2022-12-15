@@ -51,12 +51,12 @@ public class Day11 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> playGame(input, 20, 3);
+        return (run, input) -> playGame(input, 20, 3);
     }
 
     @Override
     public Assignment second() {
-        return input -> playGame(input, 10000, 1);
+        return (run, input) -> playGame(input, 10000, 1);
     }
 
     private static long playGame(String input, int numberOfRounds, long boredDivisor) {

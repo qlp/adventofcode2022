@@ -12,7 +12,7 @@ public class Day08 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
+        return (run, input) -> {
             var heightMap = Arrays.stream(input.split("\\n")).map(line -> line.chars().map(c -> c - '0').toArray()).toArray(int[][]::new);
 
             return IntStream.range(0, heightMap.length).boxed().flatMap(y ->
@@ -53,7 +53,7 @@ public class Day08 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> {
+        return (run, input) -> {
             var heightMap = Arrays.stream(input.split("\\n")).map(line -> line.chars().map(c -> c - '0').toArray()).toArray(int[][]::new);
 
             return IntStream.range(0, heightMap.length).flatMap(y ->

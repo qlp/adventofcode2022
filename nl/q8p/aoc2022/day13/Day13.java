@@ -112,7 +112,7 @@ public class Day13 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
+        return (run, input) -> {
             var packetPairs = parse(input);
 
             return IntStream.range(0, packetPairs.size())
@@ -124,7 +124,7 @@ public class Day13 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> {
+        return (run, input) -> {
             var packetPairs = parse(input);
 
             var decoderKey = PacketPair.parse("""

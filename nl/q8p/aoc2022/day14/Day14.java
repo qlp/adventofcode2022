@@ -155,7 +155,7 @@ public class Day14 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
+        return (run, input) -> {
             var cave = Cave.parse(input);
 
             int sandAdded = 0;
@@ -170,7 +170,7 @@ public class Day14 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> {
+        return (run, input) -> {
             var cave = Cave.parse(input).withFloor();
 
             int sandAdded = 0;

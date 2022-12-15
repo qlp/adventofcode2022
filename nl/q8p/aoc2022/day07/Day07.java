@@ -109,7 +109,7 @@ public class Day07 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
+        return (run, input) -> {
             var device = new Device();
 
             Arrays.stream(input.split("\\n")).forEach(device::execute);
@@ -124,7 +124,7 @@ public class Day07 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> {
+        return (run, input) -> {
             var device = new Device();
 
             Arrays.stream(input.split("\\n")).forEach(device::execute);

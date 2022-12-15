@@ -41,7 +41,7 @@ public class Day04 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> stream(input.split("\\n"))
+        return (run, input) -> stream(input.split("\\n"))
             .map(Pair::parse)
             .filter(p -> p.left.contains(p.right) || p.right.contains(p.left))
             .count();
@@ -49,7 +49,7 @@ public class Day04 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> stream(input.split("\\n"))
+        return (run, input) -> stream(input.split("\\n"))
             .map(Pair::parse)
             .filter(p -> p.left.overlaps(p.right))
             .count();

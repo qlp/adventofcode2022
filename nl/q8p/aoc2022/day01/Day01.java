@@ -11,7 +11,7 @@ public class Day01 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> stream(input.split("\\n\\n")) // group for each Elve
+        return (run, input) -> stream(input.split("\\n\\n")) // group for each Elve
             .mapToInt(group -> stream(group.split("\\n")) // list of calories (as String)
                 .mapToInt(Integer::parseInt) // list of calories (as Int)
                 .sum() // sum of calories of elve
@@ -22,7 +22,7 @@ public class Day01 implements Day {
 
     @Override
     public Assignment second() {
-        return input ->
+        return (run, input) -> 
             stream(input.split("\\n\\n")) // group for each Elve
             .map(group -> stream(group.split("\\n")) // list of calories (as String)
                 .mapToInt(Integer::parseInt) // list of calories (as Int)

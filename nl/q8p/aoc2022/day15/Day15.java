@@ -141,26 +141,21 @@ public class Day15 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
-            var world = World.parse(input);
-
-            return world.coveredLinesAtRow(10) + ", " + world.coveredLinesAtRow(2000000);
-        };
+        return (run, input) -> World.parse(input).coveredLinesAtRow(switch (run) { case EXAMPLE -> 10; case ACTUAL -> 2000000; });
     }
 
     @Override
     public Assignment second() {
-        return input -> {
-            var world = World.parse(input);
-
-            return world.uncoveredPointsBetween(new Point(0, 0), new Point(20, 20))
-                    .stream().mapToLong(p -> (4000000L * p.x) + p.y)
-                    .findFirst()
-                    .orElse(-1) + ", " +
-                world.uncoveredPointsBetween(new Point(0, 0), new Point(4000000, 4000000))
+        return (run, input) -> World.parse(input).uncoveredPointsBetween(new Point(0, 0), new Point(untilCoordinateOfSecondAssignment(run), untilCoordinateOfSecondAssignment(run)))
                     .stream().mapToLong(p -> (4000000L * p.x) + p.y)
                     .findFirst()
                     .orElse(-1);
+    }
+
+    private int untilCoordinateOfSecondAssignment(Assignment.Run run) {
+        return switch (run) {
+            case EXAMPLE -> 20;
+            case ACTUAL -> 4000000;
         };
     }
 }

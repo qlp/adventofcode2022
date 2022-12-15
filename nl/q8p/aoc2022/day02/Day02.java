@@ -9,7 +9,7 @@ public class Day02 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> stream(input.split("\\n")) // plays
+        return (run, input) -> stream(input.split("\\n")) // plays
                 .map(play -> stream(play.split(" ")).mapToInt(s -> s.charAt(0)).toArray()) // two chars in an array
                 .mapToInt(play ->
                         play[1] - 'X' + 1 + // points for the move
@@ -19,7 +19,7 @@ public class Day02 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> stream(input.split("\\n")) // plays
+        return (run, input) -> stream(input.split("\\n")) // plays
                 .map(play ->play.split(" ")) // two strings in an array
                 .mapToInt(play ->
                         switch (play[1]) {

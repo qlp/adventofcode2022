@@ -56,7 +56,7 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
 
     private void run(final Assignment assignment, final AssignmentData assignmentData) {
         try {
-            final var actual = run(() -> assignment.run(assignmentData.example).toString());
+            final var actual = run(() -> assignment.run(Assignment.Run.EXAMPLE, assignmentData.example).toString());
             logResult(actual, "EXAMPLE");
             if (!actual.result.equals(assignmentData.expected)) {
                 log.info(() -> "  EXPECTING : " + assignmentData.expected);
@@ -67,7 +67,7 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         }
 
         try {
-            final var actual = run(() -> assignment.run(assignmentData.real).toString());
+            final var actual = run(() -> assignment.run(Assignment.Run.ACTUAL, assignmentData.real).toString());
             logResult(actual, "REAL");
         } catch (final Exception exception) {
             log.info(() -> "  REAL     : EXCEPTION: " + exception.getMessage());

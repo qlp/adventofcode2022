@@ -123,7 +123,7 @@ public class Day12 implements Day {
 
     @Override
     public Assignment first() {
-        return input -> {
+        return (run, input) -> {
             var heightMap = parseHeightMap(input);
 
             var route = heightMap.route(List.of(heightMap.start())).orElseThrow();
@@ -134,7 +134,7 @@ public class Day12 implements Day {
 
     @Override
     public Assignment second() {
-        return input -> {
+        return (run, input) -> {
             var heightMap = parseHeightMap(input);
 
             var route = heightMap.route(heightMap.positionsOnGroundLevel()).orElseThrow();
