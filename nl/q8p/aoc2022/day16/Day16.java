@@ -21,6 +21,21 @@ import java.util.stream.Stream;
 public class Day16 implements Day {
     private static final Logger LOG = Logger.getLogger(Day16.class.getName());
 
+    static final class Route2 {
+        private Route me;
+
+        private Route elephant;
+
+        Route2(Route me, Route elephant) {
+            this.me = me;
+            this.elephant = elephant;
+        }
+
+        public Route2 withLinks(Link newMeLink, Link newElephantLink) {
+            return new Route2(me.withLink(newMeLink), elephant.withLink(newElephantLink));
+        }
+    }
+
     static final class Route {
         private Valve start;
         private final List<Link> links;
@@ -49,7 +64,9 @@ public class Day16 implements Day {
 
         public Route withLink(Link link) {
             var newLinks = new ArrayList<>(links);
-            newLinks.add(link);
+            if (link != null) {
+                newLinks.add(link);
+            }
 
             return new Route(start, newLinks);
         }
@@ -134,6 +151,82 @@ public class Day16 implements Day {
             return newRoutes.isEmpty() ? Collections.singletonList(from) : newRoutes;
         }
 
+
+        List<Route2> routes2() {
+            var candidates = valvesByName.values().stream().filter(Valve::functional).toList();
+
+            return routes2(
+                    new Route2(
+                            new Route(valvesByName.get("AA"), Collections.emptyList()),
+                            new Route(valvesByName.get("AA"), Collections.emptyList())
+                    ),
+                    candidates.stream().filter(c -> !c.name.equals("AA")).toList());
+        }
+
+        private List<Route2> routes2(Route2 from, List<Valve> candidates) {
+            var newRoutes = new ArrayList<Route2>();
+
+            Pair.from(candidates)
+                    .stream()
+                    .filter(c -> c.me == null || !c.me.name().equals(from.me.current().name()))
+                    .filter(c -> c.elephant == null || !c.elephant.name().equals(from.elephant.current().name()))
+                    .forEach(candidatePair -> {
+
+                Link meLink = null;
+                if (candidatePair.me != null) {
+                    meLink = links
+                            .get(from.me.current().name)
+                            .stream()
+                            .filter(l -> l.to().name().equals(candidatePair.me.name()))
+                            .min(Comparator.comparing(Link::steps))
+                            .orElseThrow();
+                }
+
+                Link elephantLink = null;
+                if (candidatePair.elephant != null) {
+                    elephantLink = links
+                            .get(from.elephant.current().name)
+                            .stream()
+                            .filter(l -> l.to().name().equals(candidatePair.elephant.name()))
+                            .min(Comparator.comparing(Link::steps))
+                            .orElseThrow();
+                }
+
+                var newRoute = from.withLinks(meLink, elephantLink);
+
+                if (newRoute.me.steps() < maxSteps || newRoute.elephant.steps() < maxSteps) {
+                    var newCandidates = candidates.stream()
+                            .filter(c -> candidatePair.me == null || !c.name().equals(candidatePair.me.name()))
+                            .filter(c -> candidatePair.elephant == null || !c.name().equals(candidatePair.elephant.name()))
+                            .toList();
+                    newRoutes.addAll(routes2(newRoute, newCandidates));
+                }
+            });
+
+            return newRoutes.isEmpty() ? Collections.singletonList(from) : newRoutes;
+        }
+
+        record Pair(Valve me, Valve elephant) {
+            static List<Pair> from(List<Valve> candidates) {
+                if (candidates.size() == 1) {
+                    var single = candidates.get(0);
+
+                    return List.of(new Pair(single, null), new Pair(null, single));
+                }
+
+                return candidates
+                        .stream()
+                        .flatMap(me -> candidates.stream().map(elephant -> new Pair(me, elephant)))
+                        .filter(p -> !p.me.equals(p.elephant))
+                        .toList();
+            }
+
+            @Override
+            public String toString() {
+                return me.name + ", " + elephant.name;
+            }
+        }
+
         private static List<Link> links(Valve valve) {
             var inProgress = List.of(List.of(valve));
             var result = new HashMap<String, Link>();
@@ -210,16 +303,7 @@ public class Day16 implements Day {
         }
 
         public void open(Valve valve) {
-            tick();
             valvesByName.get(valve.name).openValve();
-        }
-
-        public void walk() {
-            tick();
-        }
-
-        public void rest() {
-            tick();
         }
 
         private void tick() {
@@ -327,14 +411,15 @@ public class Day16 implements Day {
 
                 for(var link : route.links) {
                     link.path.subList(1, link.path.size()).forEach(s -> {
-                        volcano.walk();
+                        volcano.tick();
                     });
 
+                    volcano.tick();
                     volcano.open(link.to());
                 }
 
                 IntStream.range(volcano.time, 30 + 10).forEach(i -> {
-                    volcano.rest();
+                    volcano.tick();
                 });
 
                 return volcano.pressure();
@@ -342,43 +427,92 @@ public class Day16 implements Day {
         };
     }
 
+    static Action open(final Valve value) {
+        return new Action() {
+            @Override
+            public void apply(Volcano volcano) {
+                volcano.open(value);
+            }
+
+            @Override
+            public String toString() {
+                return "open " + value;
+            }
+        };
+    }
+
+
+    static Action walk(final Valve value) {
+        return new Action() {
+            @Override
+            public void apply(Volcano volcano) {
+            }
+
+            @Override
+            public String toString() {
+                return "walk " + value;
+            }
+        };
+    }
+
+
+    interface Action {
+        void apply(Volcano volcano);
+
+        static List<Action> create(Route route) {
+            var result = new ArrayList<Action>();
+
+            for (var link : route.links) {
+                link.path.subList(1, link.path.size()).forEach(s -> {
+                    result.add(walk(s));
+                });
+
+                result.add(open(link.to()));
+            }
+
+            return result;
+        }
+    }
+
     @Override
     public Assignment second() {
         return (run, input) -> {
             var volcano = Volcano.parse(input, 26);
 
-            LOG.info(() -> "Volcano:\n" + volcano);
+            List<Route2> routes = volcano.routes2();
+            long max = 0;
+            for (int routeIndex = 0; routeIndex < routes.size(); routeIndex++) {
+//                LOG.info("route " + (routeIndex + 1) + " / " + routes.size() + ": max = " + max);
 
-//            var result = volcano.routes().stream().mapToLong(route -> {
-////                LOG.info(() -> "==========================================================");
-//
-////                LOG.info(route::toString);
-//
-//                volcano.reset();
-//
-//                for(var link : route.links) {
-//                    link.path.subList(1, link.path.size()).forEach(s -> {
-//                        volcano.walk();
-//
-////                        LOG.info(() -> "" + volcano.time + ": " + volcano.pressure() + " WALKED TO " + s.name());
-//                    });
-//
-//                    volcano.open(link.to());
-////                    LOG.info(() -> "" + volcano.time + ": " + volcano.pressure() + " OPEN " + link.to().name);
-//                }
-//
-//                IntStream.range(volcano.time, 30 + 10).forEach(i -> {
-//                    volcano.rest();
-////                    LOG.info(() -> "" + volcano.time + ": " + volcano.pressure() + " REST");
-//                });
-//
-////                LOG.info(() -> "==========================================================");
-////                  LOG.info(() -> "" + volcano.time + ": " + volcano.pressure() + " DONE");
-//
-//                return volcano.pressure();
-//            }).max().orElseThrow();
+                var route = routes.get(routeIndex);
 
-            return volcano.routes();
+                volcano.reset();
+
+                var meActions = Action.create(route.me);
+                var elephantActions = Action.create(route.elephant);
+
+                for (int i = 0; i < 28 + 5; i++) {
+                    volcano.tick();
+
+                    if (i < meActions.size()) {
+                        var action = meActions.get(i);
+                        action.apply(volcano);
+
+//                        LOG.info(() -> "" + volcano.time + ": me      : " + action);
+                    }
+                    if (i < elephantActions.size()) {
+                        var action = elephantActions.get(i);
+                        action.apply(volcano);
+
+//                        LOG.info(() -> "" + volcano.time + ": elephant: " + action);
+//                        LOG.info(() -> "pressure: " + volcano.pressure());
+                    }
+                }
+
+                max = Math.max(max, volcano.pressure());
+            }
+
+            return max;
         };
     }
 }
