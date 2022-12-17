@@ -99,7 +99,6 @@ public class Day17 implements Day {
 
     static class Cave {
         private static final int BUFFER_SIZE = 1000000;
-        private static final int BUFFER_SHIFT = 100;
 
 
         private final int[] buffer = new int[BUFFER_SIZE];
@@ -170,11 +169,22 @@ public class Day17 implements Day {
         }
 
         private void removeRedundantRowsAtTheBottom() {
-            if (bufferSize > BUFFER_SIZE - BUFFER_SHIFT) {
-                bottom = (bottom + BUFFER_SHIFT) % BUFFER_SIZE;
-                removedToOptimize += BUFFER_SHIFT;
+            for (int i = bufferSize - 2; i >= 0; i--) {
+                if ((valueForLine(i - 1) | valueForLine(i)) == BOTTOM) {
+                    var newBottom = (bottom + i) % BUFFER_SIZE;
 
-                updateBufferSize();
+                    int removingLines;
+
+                    if (newBottom >= bottom) {
+                        removingLines = newBottom - bottom;
+                    } else {
+                        removingLines = newBottom + BUFFER_SIZE - bottom;
+                    }
+
+                    removedToOptimize += removingLines;
+                    bottom = newBottom;
+                    updateBufferSize();
+                }
             }
         }
 
@@ -338,6 +348,7 @@ public class Day17 implements Day {
             var tickCounter = 0L;
 
             while(blockCounter != blockCount) {
+                LOG.info(toString());
                 tickCounter++;
                 blockCounter += tick() ? 1 : 0;
 
