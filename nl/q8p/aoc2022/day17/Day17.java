@@ -246,26 +246,29 @@ public class Day17 implements Day {
 
             return result;
         }
+
+        public long height() {
+            return rows.size();
+        }
+
+        public long heightAfter(long blockCount) {
+            var blockCounter = 0L;
+
+            while(blockCounter != blockCount) {
+                blockCounter += tick() ? 1 : 0;
+            }
+
+            return height();
+        }
     }
 
     @Override
     public Assignment first() {
-        return (run, input) -> {
-            var cave = new Cave(Wind.parse(input));
-
-            var blockCounter = 0;
-
-            while(blockCounter != 2022) {
-                blockCounter += cave.tick() ? 1 : 0;
-//                LOG.info(cave::toString);
-            }
-
-            return cave.rows.size();
-        };
+        return (run, input) -> new Cave(Wind.parse(input)).heightAfter(2022);
     }
 
     @Override
     public Assignment second() {
-        return (run, input) -> "";
+        return (run, input) -> new Cave(Wind.parse(input)).heightAfter(1000000000000L);
     }
 }
