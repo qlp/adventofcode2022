@@ -46,13 +46,12 @@ public class Day17 implements Day {
 
         private final int width;
 
-        int height() {
-            return shape.length;
-        }
+        private final int height;
 
         BlockType(String[] shape) {
             this.shape = Arrays.stream(shape).mapToInt(string -> valueForString(" " + string.replace('@', '#') + " ")).toArray();
             this.width = shape[0].length();
+            this.height = shape.length;
         }
 
         static BlockType first() {
@@ -166,7 +165,7 @@ public class Day17 implements Day {
             removeRedundantRowsAtTheBottom();
 
             currentType = blockType;
-            currentY = bufferSize + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1;
+            currentY = bufferSize + blockType.height + EMPTY_ROWS_ABOVE_STACK - 1;
             currentX = INITIAL_X;
         }
 
@@ -204,7 +203,7 @@ public class Day17 implements Day {
 
             boolean possible = true;
 
-            for (int i = 0; i < currentType.height(); i++) {
+            for (int i = 0; i < currentType.height; i++) {
                 int rowIndex = candidateY - i;
                 int world = valueForLine(rowIndex);
                 int shapeLine = currentType.shape[i];
@@ -237,7 +236,7 @@ public class Day17 implements Day {
         }
 
         private void save() {
-            for (int y = currentType.height() - 1; y >= 0; y--) {
+            for (int y = currentType.height - 1; y >= 0; y--) {
                 var rowIndex = currentY - y;
 
                 if (bufferSize < rowIndex + 1) {
@@ -276,7 +275,7 @@ public class Day17 implements Day {
             }
 
             int blockTop = currentY;
-            int blockBottom = currentY - currentType.height() + 1;
+            int blockBottom = currentY - currentType.height + 1;
 
             if (y <= blockTop && y >= blockBottom) {
                 int blockLineIndex = blockTop - y;
