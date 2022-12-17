@@ -207,10 +207,10 @@ public class Day17 implements Day {
 
             for (int i = 0; i < view.length; i++) {
                 int world = view[i];
-                int block = candidate.type.shape[i];
-                block = block << candidate.position.x;
+                int shapeLine = candidate.type.shape[i];
+                shapeLine = shapeLine << candidate.position.x;
 
-                int masked = block & world;
+                int masked = shapeLine & world;
 
                 possible &= masked == 0;
             }
@@ -253,8 +253,12 @@ public class Day17 implements Day {
                     rows.add(empty);
                 }
 
-                var update = stringForLine(rowIndex, block).replace(CURRENT, BLOCK).replace(VOID, AIR);
-                rows.set(rowIndex, valueForString(update));
+                var current = rows.get(rowIndex);
+                int shapeLine = block.type.shape[y];
+                shapeLine = shapeLine << block.position.x;
+
+                var update = current | shapeLine;
+                rows.set(rowIndex, update);
             }
         }
 
@@ -349,6 +353,6 @@ public class Day17 implements Day {
 
     @Override
     public Assignment second() {
-        return (run, input) -> new Cave(Wind.parse(input)).heightAfter(1000000000000L);
+        return (run, input) -> new Cave(Wind.parse(input)).heightAfter(1_000_000_000_000L);
     }
 }
