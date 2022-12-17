@@ -15,16 +15,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class Day16 implements Day {
     private static final Logger LOG = Logger.getLogger(Day16.class.getName());
 
     static final class Route2 {
-        private Route me;
+        private final Route me;
 
-        private Route elephant;
+        private final Route elephant;
 
         Route2(Route me, Route elephant) {
             this.me = me;
@@ -34,19 +33,52 @@ public class Day16 implements Day {
         public Route2 withLinks(Link newMeLink, Link newElephantLink) {
             return new Route2(me.withLink(newMeLink), elephant.withLink(newElephantLink));
         }
+
+        public boolean didNotOpen(Valve valve) {
+            return me.didNotOpen(valve) && elephant.didNotOpen(valve);
+        }
+
+        public long pressure() {
+            return me.pressure() + elephant.pressure();
+        }
     }
 
     static final class Route {
-        private Valve start;
+        private final Valve start;
         private final List<Link> links;
 
-        Route(Valve start, List<Link> links) {
+        private final List<Valve> valves;
+
+        private final int maxSteps;
+
+        Route(Valve start, List<Link> links, int maxSteps) {
             this.start = start;
             this.links = links;
+            this.maxSteps = maxSteps;
+
+            if (links.isEmpty()) {
+                valves = List.of(start);
+            } else {
+                valves = Stream.concat(Stream.of(links.get(0).from()), links.stream().map(Link::to)).toList();
+            }
+        }
+
+        public long pressure() {
+            var pressure = 0L;
+            var steps = 0;
+
+            for (var link : links) {
+                steps += link.steps() + 1;
+                if (steps < maxSteps) {
+                    pressure += link.to().rate * (maxSteps - steps);
+                }
+            }
+
+            return pressure;
         }
 
         public List<Valve> valves() {
-            return Stream.concat(Stream.of(links.get(0).from()), links.stream().map(Link::to)).toList();
+            return valves;
         }
 
         @Override
@@ -68,20 +100,11 @@ public class Day16 implements Day {
                 newLinks.add(link);
             }
 
-            return new Route(start, newLinks);
-        }
-    }
-
-    static final class Path {
-        private final List<Valve> valves;
-
-        Path(List<Valve> valves) {
-            this.valves = valves;
+            return new Route(start, newLinks, maxSteps);
         }
 
-        @Override
-        public String toString() {
-            return valves.stream().map(d -> d.name).collect(Collectors.joining(" -> "));
+        public boolean didNotOpen(Valve valve) {
+            return !valves.contains(valve);
         }
     }
 
@@ -120,45 +143,47 @@ public class Day16 implements Day {
         public Volcano(List<Valve> valves, int maxSteps) {
             this.valvesByName = valves.stream().collect(Collectors.toMap(v -> v.name, v -> v));
 
-            this.links = valvesByName.values().stream().filter(valve -> valve.name.equals("AA") || valve.functional()).collect(Collectors.toMap(v -> v.name, v -> links(v)));
+            this.links = valvesByName.values().stream().filter(valve -> valve.name.equals("AA") || valve.functional()).collect(Collectors.toMap(v -> v.name, Volcano::links));
             this.maxSteps = maxSteps;
         }
 
         List<Route> routes() {
             var candidates = valvesByName.values().stream().filter(Valve::functional).toList();
 
-            return routes(new Route(valvesByName.get("AA"), Collections.emptyList()), candidates.stream().filter(c -> !c.name.equals("AA")).toList());
+            return routes(new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps), candidates.stream().filter(c -> !c.name.equals("AA")).toList());
         }
 
         private List<Route> routes(Route from, List<Valve> candidates) {
             var newRoutes = new ArrayList<Route>();
 
-            candidates.stream().filter(c -> !c.name().equals(from.current().name())).forEach(candidateValve -> {
+           candidates.forEach(candidateValve -> {
                 var link = links
                     .get(from.current().name)
                     .stream()
                     .filter(l -> l.to().name().equals(candidateValve.name()))
+                    .filter(l -> l.path.stream().noneMatch(v -> v.rate > l.to().rate && from.didNotOpen(v) ))
                     .min(Comparator.comparing(Link::steps))
-                    .orElseThrow();
+                    .orElse(null);
 
-                var newLink = from.withLink(link);
+                if (link != null) {
+                    var newLink = from.withLink(link);
 
-                if (newLink.steps() < maxSteps) {
-                    newRoutes.addAll(routes(newLink, candidates.stream().filter(c -> !c.name().equals(candidateValve.name())).toList()));
+                    if (newLink.steps() < maxSteps) {
+                        newRoutes.addAll(routes(newLink, candidates.stream().filter(c -> !c.name().equals(candidateValve.name())).toList()));
+                    }
                 }
             });
 
             return newRoutes.isEmpty() ? Collections.singletonList(from) : newRoutes;
         }
 
-
         List<Route2> routes2() {
             var candidates = valvesByName.values().stream().filter(Valve::functional).toList();
 
             return routes2(
                     new Route2(
-                            new Route(valvesByName.get("AA"), Collections.emptyList()),
-                            new Route(valvesByName.get("AA"), Collections.emptyList())
+                            new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps),
+                            new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps)
                     ),
                     candidates.stream().filter(c -> !c.name.equals("AA")).toList());
         }
@@ -166,11 +191,15 @@ public class Day16 implements Day {
         private List<Route2> routes2(Route2 from, List<Valve> candidates) {
             var newRoutes = new ArrayList<Route2>();
 
-            Pair.from(candidates)
+            Pair.from(from, candidates)
                     .stream()
                     .filter(c -> c.me == null || !c.me.name().equals(from.me.current().name()))
                     .filter(c -> c.elephant == null || !c.elephant.name().equals(from.elephant.current().name()))
                     .forEach(candidatePair -> {
+
+                if (candidates.size() == 15) {
+                    LOG.info(() -> "pair: " + candidatePair);
+                }
 
                 Link meLink = null;
                 if (candidatePair.me != null) {
@@ -178,8 +207,9 @@ public class Day16 implements Day {
                             .get(from.me.current().name)
                             .stream()
                             .filter(l -> l.to().name().equals(candidatePair.me.name()))
+                            .filter(l -> l.path.stream().noneMatch(v -> v.rate > l.to().rate && from.didNotOpen(v) ))
                             .min(Comparator.comparing(Link::steps))
-                            .orElseThrow();
+                            .orElse(null);
                 }
 
                 Link elephantLink = null;
@@ -188,18 +218,21 @@ public class Day16 implements Day {
                             .get(from.elephant.current().name)
                             .stream()
                             .filter(l -> l.to().name().equals(candidatePair.elephant.name()))
+                            .filter(l -> l.path.stream().noneMatch(v -> v.rate > l.to().rate && from.didNotOpen(v) ))
                             .min(Comparator.comparing(Link::steps))
-                            .orElseThrow();
+                            .orElse(null);
                 }
 
-                var newRoute = from.withLinks(meLink, elephantLink);
+                if (meLink != null || elephantLink != null) {
+                    var newRoute = from.withLinks(meLink, elephantLink);
 
-                if (newRoute.me.steps() < maxSteps || newRoute.elephant.steps() < maxSteps) {
-                    var newCandidates = candidates.stream()
-                            .filter(c -> candidatePair.me == null || !c.name().equals(candidatePair.me.name()))
-                            .filter(c -> candidatePair.elephant == null || !c.name().equals(candidatePair.elephant.name()))
-                            .toList();
-                    newRoutes.addAll(routes2(newRoute, newCandidates));
+                    if (newRoute.me.steps() < maxSteps || newRoute.elephant.steps() < maxSteps) {
+                        var newCandidates = candidates.stream()
+                                .filter(c -> candidatePair.me == null || !c.name().equals(candidatePair.me.name()))
+                                .filter(c -> candidatePair.elephant == null || !c.name().equals(candidatePair.elephant.name()))
+                                .toList();
+                        newRoutes.addAll(routes2(newRoute, newCandidates));
+                    }
                 }
             });
 
@@ -207,7 +240,7 @@ public class Day16 implements Day {
         }
 
         record Pair(Valve me, Valve elephant) {
-            static List<Pair> from(List<Valve> candidates) {
+            static List<Pair> from(Route2 from, List<Valve> candidates) {
                 if (candidates.size() == 1) {
                     var single = candidates.get(0);
 
@@ -266,10 +299,6 @@ public class Day16 implements Day {
             return valvesByName.values().stream().sorted(Comparator.comparing(v -> v.name)).map(Valve::toString).collect(Collectors.joining("\n"));
         }
 
-        public long valvesToOpen() {
-            return valvesByName.values().stream().filter(v -> !v.open && v.rate > 0).count();
-        }
-
         static Volcano parse(String string, int maxSteps) {
             var result = new HashMap<>(Arrays.stream(string.split("\n")).map(Valve::parse).collect(Collectors.toMap(v -> v.name, v -> v)));
 
@@ -285,32 +314,11 @@ public class Day16 implements Day {
                 .flatMap(Arrays::stream)
                 .distinct()
                 .filter(n -> !result.containsKey(n))
-                .forEach(v -> result.put(v, new Valve(v, new HashSet<>(), 0, 0, false)));
-
+                .forEach(v -> result.put(v, new Valve(v, new HashSet<>(), 0)));
 
             relations.forEach((valve, tunnels) -> Arrays.stream(tunnels).forEach(tunnel -> result.get(valve).connect(result.get(tunnel))));
 
             return new Volcano(result.values().stream().toList(), maxSteps);
-        }
-
-        public long pressure() {
-            return valvesByName.values().stream().mapToLong(v -> v.pressure).sum();
-        }
-
-        public void reset() {
-            valvesByName.values().forEach(Valve::reset);
-            time = 0;
-        }
-
-        public void open(Valve valve) {
-            valvesByName.get(valve.name).openValve();
-        }
-
-        private void tick() {
-            if (time < maxSteps) {
-                time++;
-                valvesByName.values().forEach(Valve::tick);
-            }
         }
     }
 
@@ -318,20 +326,11 @@ public class Day16 implements Day {
         private final String name;
         private final Set<Valve> tunnels;
         private final long rate;
-        long pressure;
-        boolean open;
 
-        Valve(String name, Set<Valve> tunnels, long rate, long pressure, boolean open) {
+        Valve(String name, Set<Valve> tunnels, long rate) {
             this.name = name;
             this.tunnels = tunnels;
             this.rate = rate;
-            this.pressure = pressure;
-            this.open = open;
-        }
-
-        void reset() {
-            pressure = 0;
-            open = false;
         }
 
         void connect(Valve tunnel) {
@@ -343,14 +342,12 @@ public class Day16 implements Day {
                 return new Valve(
                         string.substring("Valve ".length(), string.indexOf(" has ")),
                         new HashSet<>(),
-                        Long.parseLong(string.substring(string.indexOf("rate=") + "rate=".length(), string.indexOf(';'))),
-                        0L,
-                        false);
+                        Long.parseLong(string.substring(string.indexOf("rate=") + "rate=".length(), string.indexOf(';'))));
             }
 
             @Override
             public String toString() {
-                return name + ": " + pressure + " (" + rate + ": " + String.join(", ", tunnels.stream().map(t -> t.name).sorted().toList()) + ")";
+                return name + " (" + rate + ": " + String.join(", ", tunnels.stream().map(t -> t.name).sorted().toList()) + ")";
             }
 
             public boolean functional() {
@@ -373,146 +370,15 @@ public class Day16 implements Day {
         public String name() {
             return name;
         }
-
-        public Set<Valve> tunnels() {
-            return tunnels;
-        }
-
-        public long rate() {
-            return rate;
-        }
-
-        public long pressure() {
-            return pressure;
-        }
-
-        public boolean open() {
-            return open;
-        }
-
-        public void openValve() {
-            open = true;
-        }
-
-        public void tick() {
-            if (open) {
-                pressure += rate;
-            }
-        }
     }
 
     @Override
     public Assignment first() {
-        return (run, input) -> {
-            var volcano = Volcano.parse(input, 30);
-
-            return volcano.routes().stream().mapToLong(route -> {
-                volcano.reset();
-
-                for(var link : route.links) {
-                    link.path.subList(1, link.path.size()).forEach(s -> {
-                        volcano.tick();
-                    });
-
-                    volcano.tick();
-                    volcano.open(link.to());
-                }
-
-                IntStream.range(volcano.time, 30 + 10).forEach(i -> {
-                    volcano.tick();
-                });
-
-                return volcano.pressure();
-            }).max().orElseThrow();
-        };
-    }
-
-    static Action open(final Valve value) {
-        return new Action() {
-            @Override
-            public void apply(Volcano volcano) {
-                volcano.open(value);
-            }
-
-            @Override
-            public String toString() {
-                return "open " + value;
-            }
-        };
-    }
-
-
-    static Action walk(final Valve value) {
-        return new Action() {
-            @Override
-            public void apply(Volcano volcano) {
-            }
-
-            @Override
-            public String toString() {
-                return "walk " + value;
-            }
-        };
-    }
-
-
-    interface Action {
-        void apply(Volcano volcano);
-
-        static List<Action> create(Route route) {
-            var result = new ArrayList<Action>();
-
-            for (var link : route.links) {
-                link.path.subList(1, link.path.size()).forEach(s -> {
-                    result.add(walk(s));
-                });
-
-                result.add(open(link.to()));
-            }
-
-            return result;
-        }
+        return (run, input) -> Volcano.parse(input, 30).routes().stream().mapToLong(Route::pressure).max().orElseThrow();
     }
 
     @Override
     public Assignment second() {
-        return (run, input) -> {
-            var volcano = Volcano.parse(input, 26);
-
-            List<Route2> routes = volcano.routes2();
-            long max = 0;
-            for (int routeIndex = 0; routeIndex < routes.size(); routeIndex++) {
-//                LOG.info("route " + (routeIndex + 1) + " / " + routes.size() + ": max = " + max);
-
-                var route = routes.get(routeIndex);
-
-                volcano.reset();
-
-                var meActions = Action.create(route.me);
-                var elephantActions = Action.create(route.elephant);
-
-                for (int i = 0; i < 28 + 5; i++) {
-                    volcano.tick();
-
-                    if (i < meActions.size()) {
-                        var action = meActions.get(i);
-                        action.apply(volcano);
-
-//                        LOG.info(() -> "" + volcano.time + ": me      : " + action);
-                    }
-                    if (i < elephantActions.size()) {
-                        var action = elephantActions.get(i);
-                        action.apply(volcano);
-
-//                        LOG.info(() -> "" + volcano.time + ": elephant: " + action);
-//                        LOG.info(() -> "pressure: " + volcano.pressure());
-                    }
-                }
-
-                max = Math.max(max, volcano.pressure());
-            }
-
-            return max;
-        };
+        return (run, input) -> Volcano.parse(input, 26).routes2().stream().mapToLong(Route2::pressure).max().orElseThrow();
     }
 }
