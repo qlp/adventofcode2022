@@ -78,20 +78,23 @@ public class Day17 implements Day {
     }
 
     static class Wind {
-        private final List<Shift> shifts;
+        private final Move[] shifts;
 
         private long nextIndex = 0;
 
-        Wind(List<Shift> shifts) {
+        private static final Move LEFT = new Move(-1, 0);
+        private static final Move RIGHT = new Move(1, 0);
+
+        Wind(Move[] shifts) {
             this.shifts = shifts;
         }
 
         static Wind parse(String string) {
-            return new Wind(string.chars().mapToObj(c -> ((char)c) == '>' ? Shift.RIGHT : Shift.LEFT).toList());
+            return new Wind(string.chars().mapToObj(c -> c == '>' ? RIGHT : LEFT).toArray(Move[]::new));
         }
 
-        public Shift next() {
-            return shifts.get((int)(nextIndex++ % shifts.size()));
+        public Move next() {
+            return shifts[(int)(nextIndex++ % shifts.length)];
         }
     }
 
@@ -177,7 +180,7 @@ public class Day17 implements Day {
         }
 
         boolean tick() {
-            apply(wind.next().move);
+            apply(wind.next());
 
             if (!apply(gravity)) {
                 save();
