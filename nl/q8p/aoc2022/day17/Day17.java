@@ -5,10 +5,8 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
@@ -16,19 +14,14 @@ public class Day17 implements Day {
 
     private static final Logger LOG = Logger.getLogger(Day17.class.getName());
 
+    private static final String WALL = "|";
+    private static final String BOTTOM = "-";
+    private static final String BLOCK = "#";
+    private static final String CORNER = "+";
 
-    static final String AIR = ".";
-    static final String VOID = ".";
-    static final String WALL = "|";
-    static final String BOTTOM = "-";
-    static final String BLOCK = "#";
-    static final String CORNER = "+";
+    private static final char CURRENT_CHAR = '@';
 
-    static final char CURRENT_CHAR = '@';
-
-    static final String CURRENT = "" + CURRENT_CHAR;
-
-    static String UNMOVABLE = WALL + BOTTOM + BLOCK + CORNER;
+    private static final String UNMOVABLE = WALL + BOTTOM + BLOCK + CORNER;
 
     private static int valueForString(String update) {
         int result = 0;
@@ -106,8 +99,6 @@ public class Day17 implements Day {
 
         private int nextIndex = 0;
 
-        private Block block;
-
         Wind(List<Shift> shifts) {
             this.shifts = shifts;
         }
@@ -122,28 +113,22 @@ public class Day17 implements Day {
     }
 
     static class Cave {
-        LinkedList<Integer> rows = new LinkedList<>();
+        List<Integer> rows = new ArrayList<>();
 
         long removedToOptimize = 0L;
 
-        int width = 7;
-        int emptyRowsAboveStack = 3;
+        private static final int WIDTH = 7;
+        private static final int EMPTY_ROWS_ABOVE_STACK = 3;
 
-        private final int bottom = 127;
+        private static final int BOTTOM = 127;
 
-        private final int empty = 0;
+        private static final int EMPTY = 0;
 
-        String emptyRow = AIR.repeat(width);
-        String voidRow = VOID.repeat(width);
-
-        String bottomRow = BOTTOM.repeat(width);
         private final Wind wind;
 
         private final Move gravity = new Move(0, -1);
 
         private Block current;
-
-        private Map<String, Integer> unmovableCalculations = new HashMap<>();
 
         public Cave(Wind wind) {
             this.wind = wind;
@@ -155,7 +140,7 @@ public class Day17 implements Day {
             removeEmptyRowsAtTheTop();
             removeRedundantRowsAtTheBottom();
 
-            this.current = new Block(blockType, new Position(rows.size() + blockType.height() + emptyRowsAboveStack - 1));
+            this.current = new Block(blockType, new Position(rows.size() + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1));
         }
 
         private void removeRedundantRowsAtTheBottom() {
@@ -169,9 +154,9 @@ public class Day17 implements Day {
             for (int rowNumber = rows.size(); rowNumber >= 0; rowNumber--) {
                 if(rowNumber == 0 || rows.get(rowNumber - 1) != 0) {
                     if (rowNumber > rows.size()) {
-                        IntStream.range(0, rowNumber - rows.size()).forEach(i -> rows.add(empty));
+                        IntStream.range(0, rowNumber - rows.size()).forEach(i -> rows.add(EMPTY));
                     } else {
-                        IntStream.range(0, rows.size() - rowNumber).forEach(i -> rows.removeLast());
+                        IntStream.range(0, rows.size() - rowNumber).forEach(i -> rows.remove(rows.size() - 1));
                     }
 
                     break;
@@ -197,16 +182,15 @@ public class Day17 implements Day {
 
             if (candidate.position.y < 0 ||
                 candidate.position.x < 0 ||
-                (candidate.position.x + candidate.type.width) > width) {
+                (candidate.position.x + candidate.type.width) > WIDTH) {
                 return false;
             }
 
-            int[] view = valuesAroundBlock(candidate);
-
             boolean possible = true;
 
-            for (int i = 0; i < view.length; i++) {
-                int world = view[i];
+            for (int i = 0; i < candidate.type.height(); i++) {
+                int rowIndex = candidate.position.y - i;
+                int world = valueForLine(rowIndex);
                 int shapeLine = candidate.type.shape[i];
                 shapeLine = shapeLine << candidate.position.x;
 
@@ -235,29 +219,19 @@ public class Day17 implements Day {
             return "\n" + String.join("\n", lines);
         }
 
-        private int[] valuesAroundBlock(Block position) {
-            var result = new int[position.type.height()];
-
-            for (int y = 0; y < position.type.height(); y++) {
-                result[y] = valueForLine(position.position.y - y);
-            }
-
-            return result;
-        }
-
         private void save(Block block) {
             for (int y = block.type.height() - 1; y >= 0; y--) {
                 var rowIndex = block.position.y - y;
 
                 if (rows.size() < rowIndex + 1) {
-                    rows.add(empty);
+                    rows.add(EMPTY);
                 }
 
-                var current = rows.get(rowIndex);
-                int shapeLine = block.type.shape[y];
-                shapeLine = shapeLine << block.position.x;
+                var caveValue = rows.get(rowIndex);
+                int shapeValue = block.type.shape[y];
+                shapeValue = shapeValue << block.position.x;
 
-                var update = current | shapeLine;
+                var update = caveValue | shapeValue;
                 rows.set(rowIndex, update);
             }
         }
@@ -277,11 +251,11 @@ public class Day17 implements Day {
         private String stringForLine(int y, Block block) {
             String result;
             if (y < 0) {
-                result = CORNER + stringForValue(bottom) + CORNER;
+                result = CORNER + stringForValue(BOTTOM) + CORNER;
             } else if (y < rows.size()) {
                 result = WALL + stringForValue(rows.get(y)) + WALL;
             } else {
-                result = WALL + stringForValue(empty) + WALL;
+                result = WALL + stringForValue(EMPTY) + WALL;
             }
 
             int blockTop = block.position.y;
@@ -308,17 +282,13 @@ public class Day17 implements Day {
             return result;
         }
 
-        private int valueForLine(int y, Block block) {
-            return valueForString(stringForLine(y, block)); // <<< TODO: optimize
-        }
-
         private int valueForLine(int y) {
             if (y < 0) {
-                return bottom;
+                return BOTTOM;
             } else if (y < rows.size()) {
                 return rows.get(y);
             } else {
-                return empty;
+                return EMPTY;
             }
         }
 
@@ -337,7 +307,7 @@ public class Day17 implements Day {
                 blockCounter += tick() ? 1 : 0;
 
 
-                if (tickCounter % 1_000_000 == 0) {
+                if (tickCounter % 10_000_000 == 0) {
                     LOG.info("" + tickCounter + ": " + blockCounter + " / " + blockCount + " (" + ((double)blockCounter / blockCount * 100L) + "%)");
                 }
             }
