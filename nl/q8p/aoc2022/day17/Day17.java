@@ -98,7 +98,7 @@ public class Day17 implements Day {
     }
 
     static class Cave {
-        private static final int BUFFER_SIZE = 1000;
+        private static final int BUFFER_SIZE = 1000000;
         private static final int BUFFER_SHIFT = 100;
 
 
@@ -143,12 +143,6 @@ public class Day17 implements Day {
             updateBufferSize();
         }
 
-        public int bufferGet(int index) {
-            var bufferIndex = (bottom + index) % BUFFER_SIZE;
-
-            return buffer[bufferIndex];
-        }
-
         public void bufferSet(int index, int value) {
             var bufferIndex = (bottom + index) % BUFFER_SIZE;
 
@@ -179,9 +173,9 @@ public class Day17 implements Day {
         }
 
         boolean tick() {
-            apply(wind.next());
+            applyWind(wind.next().x);
 
-            if (!apply(gravity)) {
+            if (!applyGravity()) {
                 save();
                 addBlock(currentType.next());
 
@@ -191,31 +185,63 @@ public class Day17 implements Day {
             return false;
         }
 
-        boolean apply(Move move) {
-            var candidateX = currentX + move.x;
-            var candidateY = currentY + move.y;
 
-            if (candidateY < 0 ||
-                candidateX < 0 ||
-                (candidateX + currentType.width) > WIDTH) {
+        boolean applyWind(int deltaX) {
+            var candidateX = currentX + deltaX;
+
+            if (candidateX < 0 || (candidateX + currentType.width) > WIDTH) {
                 return false;
             }
 
             boolean possible = true;
 
-            for (int i = 0; i < currentType.height; i++) {
-                int rowIndex = candidateY - i;
-                int world = valueForLine(rowIndex);
-                int shapeLine = currentType.shape[i];
-                shapeLine = shapeLine << candidateX;
+            if (currentY - currentType.height + 1 < bufferSize) {
+                for (int i = 0; i < currentType.height; i++) {
+                    int rowIndex = currentY - i;
+                    int world = valueForLine(rowIndex);
 
-                int masked = shapeLine & world;
+                    int shapeLine = currentType.shape[i];
+                    shapeLine = shapeLine << candidateX;
 
-                possible &= masked == 0;
+                    int masked = shapeLine & world;
+
+                    possible &= masked == 0;
+                }
             }
 
             if (possible) {
                 currentX = candidateX;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        boolean applyGravity() {
+            var candidateY = currentY - 1;
+
+            if (candidateY < 0) {
+                return false;
+            }
+
+            boolean possible = true;
+
+            if (candidateY - currentType.height + 1 < bufferSize) {
+                for (int i = 0; i < currentType.height; i++) {
+                    int rowIndex = candidateY - i;
+                    int world = valueForLine(rowIndex);
+
+                    int shapeLine = currentType.shape[i];
+                    shapeLine = shapeLine << currentX;
+
+                    int masked = shapeLine & world;
+
+                    possible &= masked == 0;
+                }
+            }
+
+            if (possible) {
                 currentY = candidateY;
 
                 return true;
@@ -243,7 +269,7 @@ public class Day17 implements Day {
                     bufferAdd(EMPTY);
                 }
 
-                var caveValue = bufferGet(rowIndex);
+                var caveValue = buffer[(bottom + rowIndex) % BUFFER_SIZE];
                 int shapeValue = currentType.shape[y];
                 shapeValue = shapeValue << currentX;
 
@@ -269,7 +295,7 @@ public class Day17 implements Day {
             if (y < 0) {
                 result = CORNER + stringForValue(BOTTOM) + CORNER;
             } else if (y < bufferSize) {
-                result = WALL + stringForValue(bufferGet(y)) + WALL;
+                result = WALL + stringForValue(valueForLine(y)) + WALL;
             } else {
                 result = WALL + stringForValue(EMPTY) + WALL;
             }
@@ -302,7 +328,7 @@ public class Day17 implements Day {
             if (y < 0) {
                 return BOTTOM;
             } else if (y < bufferSize) {
-                return bufferGet(y);
+                return buffer[(bottom + y) % BUFFER_SIZE];
             } else {
                 return EMPTY;
             }
