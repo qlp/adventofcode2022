@@ -45,7 +45,7 @@ public class Day17 implements Day {
 
     enum BlockType {
         DASH(new String[] { "@@@@" }),
-        PLUS(new String[] { " @ ", "@@@", " @" }),
+        PLUS(new String[] { " @ ", "@@@", " @ " }),
         ANGLE(new String[] { "  @", "  @", "@@@" }),
         PIPE(new String[] { "@", "@", "@", "@" }),
         BLOCK(new String[] { "@@", "@@" });
@@ -74,7 +74,7 @@ public class Day17 implements Day {
 
     record Position(int x, int y) {
         Position(int y) {
-            this(3, y);
+            this(2, y);
         }
 
         public Position with(Move move) {
@@ -195,28 +195,33 @@ public class Day17 implements Day {
         boolean apply(Move move) {
             var candidate = current.with(move);
 
-            String[] currentView = stringsAroundBlock(current, current);
-            var before = countImmutables(currentView);
-            String[] afterView = stringsAroundBlock(current, candidate);
-            var after = countImmutables(afterView);
+            if (candidate.position.y < 0 ||
+                candidate.position.x < 0 ||
+                (candidate.position.x + candidate.type.width) > width) {
+                return false;
+            }
 
-            if (before == after) {
+            int[] view = valuesAroundBlock(candidate);
+
+            boolean possible = true;
+
+            for (int i = 0; i < view.length; i++) {
+                int world = view[i];
+                int block = candidate.type.shape[i];
+                block = block << candidate.position.x;
+
+                int masked = block & world;
+
+                possible &= masked == 0;
+            }
+
+            if (possible) {
                 current = candidate;
 
                 return true;
             }
 
             return false;
-        }
-
-        private int countImmutables(String[] stringsAroundBlock) {
-            var sum = 0;
-
-            for (int i = 0; i < stringsAroundBlock.length; i++) {
-                sum += unmovableCalculations.computeIfAbsent(stringsAroundBlock[i], s -> (int)s.chars().filter(c -> UNMOVABLE.indexOf(c) != -1).count());
-            }
-
-            return sum;
         }
 
         @Override
@@ -230,21 +235,11 @@ public class Day17 implements Day {
             return "\n" + String.join("\n", lines);
         }
 
-        private String[] stringsAroundBlock(Block position, Block representation) {
-            var result = new String[position.type.height() + 1];
+        private int[] valuesAroundBlock(Block position) {
+            var result = new int[position.type.height()];
 
-            for (int y = 0; y < position.type.height() + 1; y++) {
-                result[y] = stringForLine(position.position.y - y, representation);
-            }
-
-            return result;
-        }
-
-        private int[] valuesAroundBlock(Block position, Block representation) {
-            var result = new int[position.type.height() + 1];
-
-            for (int y = 0; y < position.type.height() + 1; y++) {
-                result[y] = valueForLine(position.position.y - y, representation);
+            for (int y = 0; y < position.type.height(); y++) {
+                result[y] = valueForLine(position.position.y - y);
             }
 
             return result;
@@ -299,7 +294,7 @@ public class Day17 implements Day {
                     var c = blockString.charAt(x);
 
                     if (c == '#') {
-                        withBlock.setCharAt(block.position.x + x, CURRENT_CHAR);
+                        withBlock.setCharAt(block.position.x + x + 1, CURRENT_CHAR);
                     }
                 }
 
@@ -311,6 +306,16 @@ public class Day17 implements Day {
 
         private int valueForLine(int y, Block block) {
             return valueForString(stringForLine(y, block)); // <<< TODO: optimize
+        }
+
+        private int valueForLine(int y) {
+            if (y < 0) {
+                return bottom;
+            } else if (y < rows.size()) {
+                return rows.get(y);
+            } else {
+                return empty;
+            }
         }
 
         public long height() {
@@ -329,7 +334,7 @@ public class Day17 implements Day {
 
 
                 if (tickCounter % 1_000_000 == 0) {
-                    LOG.info("" + tickCounter + ": " + blockCounter + " / " + blockCount + " (" + (blockCounter / blockCount * 100L) + "%)");
+                    LOG.info("" + tickCounter + ": " + blockCounter + " / " + blockCount + " (" + ((double)blockCounter / blockCount * 100L) + "%)");
                 }
             }
 
