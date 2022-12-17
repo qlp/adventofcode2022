@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -232,27 +231,6 @@ public class Day16 implements Day {
             }
 
             return newRoutes.isEmpty() ? from : newRoutes.stream().max(Comparator.comparingLong(Route2::pressure)).orElseThrow();
-        }
-
-        record Pair(Valve me, Valve elephant) {
-            static List<Pair> from(Route2 from, List<Valve> candidates) {
-                if (candidates.size() == 1) {
-                    var single = candidates.get(0);
-
-                    return List.of(new Pair(single, null), new Pair(null, single));
-                }
-
-                return candidates
-                        .stream()
-                        .flatMap(me -> candidates.stream().map(elephant -> new Pair(me, elephant)))
-                        .filter(p -> !p.me.equals(p.elephant))
-                        .toList();
-            }
-
-            @Override
-            public String toString() {
-                return me.name + ", " + elephant.name;
-            }
         }
 
         private static List<Link> links(Valve valve) {
