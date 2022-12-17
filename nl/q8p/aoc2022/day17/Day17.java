@@ -5,7 +5,6 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
@@ -97,7 +96,7 @@ public class Day17 implements Day {
     static class Wind {
         private final List<Shift> shifts;
 
-        private int nextIndex = 0;
+        private long nextIndex = 0;
 
         Wind(List<Shift> shifts) {
             this.shifts = shifts;
@@ -108,7 +107,7 @@ public class Day17 implements Day {
         }
 
         public Shift next() {
-            return shifts.get(nextIndex++ % shifts.size());
+            return shifts.get((int)(nextIndex++ % shifts.size()));
         }
     }
 
@@ -145,7 +144,7 @@ public class Day17 implements Day {
 
         private void removeRedundantRowsAtTheBottom() {
             if (rows.size() > 500) {
-                rows = new LinkedList<>(rows.subList(100, rows.size()));
+                rows = new ArrayList<>(rows.subList(100, rows.size()));
                 removedToOptimize += 100;
             }
         }
