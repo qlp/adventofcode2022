@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Day16 implements Day {
-    private static final Logger LOG = Logger.getLogger(Day16.class.getName());
-
     static final class Route2 {
         private final Route me;
 
@@ -87,7 +85,7 @@ public class Day16 implements Day {
         }
 
         public int steps() {
-            return links.stream().mapToInt(Link::steps).sum();
+            return Math.min(maxSteps, links.stream().mapToInt(Link::steps).sum() + links.size());
         }
 
         public Valve current() {
@@ -177,10 +175,10 @@ public class Day16 implements Day {
             return newRoutes.isEmpty() ? from : newRoutes.stream().max(Comparator.comparingLong(Route::pressure)).orElseThrow();
         }
 
-        List<Route2> routes2() {
+        Route2 route2() {
             var candidates = valvesByName.values().stream().filter(Valve::functional).toList();
 
-            return routes2(
+            return route2(
                     new Route2(
                             new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps),
                             new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps)
@@ -188,55 +186,52 @@ public class Day16 implements Day {
                     candidates.stream().filter(c -> !c.name.equals("AA")).toList());
         }
 
-        private List<Route2> routes2(Route2 from, List<Valve> candidates) {
+        private Route2 route2(Route2 from, List<Valve> candidates) {
+            if (from.me.steps() == maxSteps && from.elephant.steps() == maxSteps) {
+                return from;
+            }
+
             var newRoutes = new ArrayList<Route2>();
 
-            Pair.from(from, candidates)
-                    .stream()
-                    .filter(c -> c.me == null || !c.me.name().equals(from.me.current().name()))
-                    .filter(c -> c.elephant == null || !c.elephant.name().equals(from.elephant.current().name()))
-                    .forEach(candidatePair -> {
-
-                if (candidates.size() == 15) {
-                    LOG.info(() -> "pair: " + candidatePair);
-                }
-
-                Link meLink = null;
-                if (candidatePair.me != null) {
-                    meLink = links
+            if (from.me.steps() <= from.elephant.steps()) {
+                candidates.forEach(candidateValve -> {
+                    var link = links
                             .get(from.me.current().name)
                             .stream()
-                            .filter(l -> l.to().name().equals(candidatePair.me.name()))
+                            .filter(l -> l.to().name().equals(candidateValve.name()))
                             .filter(l -> l.path.stream().noneMatch(v -> v.rate > l.to().rate && from.didNotOpen(v) ))
                             .min(Comparator.comparing(Link::steps))
                             .orElse(null);
-                }
 
-                Link elephantLink = null;
-                if (candidatePair.elephant != null) {
-                    elephantLink = links
+                    if (link != null) {
+                        var newLink = from.withLinks(link, null);
+
+                        if (newLink.me.steps() < maxSteps) {
+                            newRoutes.add(route2(newLink, candidates.stream().filter(c -> !c.name().equals(candidateValve.name())).toList()));
+                        }
+                    }
+                });
+            } else {
+                candidates.forEach(candidateValve -> {
+                    var link = links
                             .get(from.elephant.current().name)
                             .stream()
-                            .filter(l -> l.to().name().equals(candidatePair.elephant.name()))
+                            .filter(l -> l.to().name().equals(candidateValve.name()))
                             .filter(l -> l.path.stream().noneMatch(v -> v.rate > l.to().rate && from.didNotOpen(v) ))
                             .min(Comparator.comparing(Link::steps))
                             .orElse(null);
-                }
 
-                if (meLink != null || elephantLink != null) {
-                    var newRoute = from.withLinks(meLink, elephantLink);
+                    if (link != null) {
+                        var newLink = from.withLinks(null, link);
 
-                    if (newRoute.me.steps() < maxSteps || newRoute.elephant.steps() < maxSteps) {
-                        var newCandidates = candidates.stream()
-                                .filter(c -> candidatePair.me == null || !c.name().equals(candidatePair.me.name()))
-                                .filter(c -> candidatePair.elephant == null || !c.name().equals(candidatePair.elephant.name()))
-                                .toList();
-                        newRoutes.addAll(routes2(newRoute, newCandidates));
+                        if (newLink.elephant.steps() < maxSteps) {
+                            newRoutes.add(route2(newLink, candidates.stream().filter(c -> !c.name().equals(candidateValve.name())).toList()));
+                        }
                     }
-                }
-            });
+                });
+            }
 
-            return newRoutes.isEmpty() ? Collections.singletonList(from) : newRoutes;
+            return newRoutes.isEmpty() ? from : newRoutes.stream().max(Comparator.comparingLong(Route2::pressure)).orElseThrow();
         }
 
         record Pair(Valve me, Valve elephant) {
@@ -379,6 +374,6 @@ public class Day16 implements Day {
 
     @Override
     public Assignment second() {
-        return (run, input) -> Volcano.parse(input, 26).routes2().stream().mapToLong(Route2::pressure).max().orElseThrow();
+        return (run, input) -> Volcano.parse(input, 26).route2().pressure();
     }
 }
