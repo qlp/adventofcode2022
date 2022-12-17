@@ -64,22 +64,6 @@ public class Day17 implements Day {
         }
     }
 
-    record Position(int x, int y) {
-        Position(int y) {
-            this(2, y);
-        }
-
-        public Position with(Move move) {
-            return new Position(x + move.x, y + move.y);
-        }
-    }
-
-    record Block(BlockType type, Position position) {
-        public Block with(Move move) {
-            return new Block(type, position.with(move));
-        }
-    }
-
     record Move(int x, int y) { }
 
     enum Shift {
@@ -115,7 +99,8 @@ public class Day17 implements Day {
         private static final int BUFFER_SIZE = 1000;
         private static final int BUFFER_SHIFT = 100;
 
-        private int[] buffer = new int[BUFFER_SIZE];
+
+        private final int[] buffer = new int[BUFFER_SIZE];
 
         private int top = 0;
         private int bottom = 0;
@@ -125,6 +110,8 @@ public class Day17 implements Day {
         private static final int WIDTH = 7;
         private static final int EMPTY_ROWS_ABOVE_STACK = 3;
 
+        private static final int INITIAL_X = 2;
+
         private static final int BOTTOM = 127;
 
         private static final int EMPTY = 0;
@@ -133,7 +120,9 @@ public class Day17 implements Day {
 
         private final Move gravity = new Move(0, -1);
 
-        private Block current;
+        private BlockType currentType;
+        private int currentX;
+        private int currentY;
 
         public int bufferSize() {
             if (top >= bottom) {
@@ -169,7 +158,9 @@ public class Day17 implements Day {
         void addBlock(BlockType blockType) {
             removeRedundantRowsAtTheBottom();
 
-            this.current = new Block(blockType, new Position(bufferSize() + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1));
+            currentType = blockType;
+            currentY = bufferSize() + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1;
+            currentX = INITIAL_X;
         }
 
         private void removeRedundantRowsAtTheBottom() {
@@ -183,8 +174,8 @@ public class Day17 implements Day {
             apply(wind.next().move);
 
             if (!apply(gravity)) {
-                save(current);
-                addBlock(current.type.next());
+                save();
+                addBlock(currentType.next());
 
                 return true;
             }
@@ -193,21 +184,22 @@ public class Day17 implements Day {
         }
 
         boolean apply(Move move) {
-            var candidate = current.with(move);
+            var candidateX = currentX + move.x;
+            var candidateY = currentY + move.y;
 
-            if (candidate.position.y < 0 ||
-                candidate.position.x < 0 ||
-                (candidate.position.x + candidate.type.width) > WIDTH) {
+            if (candidateY < 0 ||
+                candidateX < 0 ||
+                (candidateX + currentType.width) > WIDTH) {
                 return false;
             }
 
             boolean possible = true;
 
-            for (int i = 0; i < candidate.type.height(); i++) {
-                int rowIndex = candidate.position.y - i;
+            for (int i = 0; i < currentType.height(); i++) {
+                int rowIndex = candidateY - i;
                 int world = valueForLine(rowIndex);
-                int shapeLine = candidate.type.shape[i];
-                shapeLine = shapeLine << candidate.position.x;
+                int shapeLine = currentType.shape[i];
+                shapeLine = shapeLine << candidateX;
 
                 int masked = shapeLine & world;
 
@@ -215,7 +207,8 @@ public class Day17 implements Day {
             }
 
             if (possible) {
-                current = candidate;
+                currentX = candidateX;
+                currentY = candidateY;
 
                 return true;
             }
@@ -227,24 +220,24 @@ public class Day17 implements Day {
         public String toString() {
             var lines = new ArrayList<String>();
 
-            for (int y = Math.max(bufferSize() - 1, current.position.y); y >= -1; y--) {
-                lines.add(stringForLine(y, current));
+            for (int y = Math.max(bufferSize() - 1, currentY); y >= -1; y--) {
+                lines.add(stringForLine(y));
             }
 
             return "\n" + String.join("\n", lines);
         }
 
-        private void save(Block block) {
-            for (int y = block.type.height() - 1; y >= 0; y--) {
-                var rowIndex = block.position.y - y;
+        private void save() {
+            for (int y = currentType.height() - 1; y >= 0; y--) {
+                var rowIndex = currentY - y;
 
                 if (bufferSize() < rowIndex + 1) {
                     bufferAdd(EMPTY);
                 }
 
                 var caveValue = bufferGet(rowIndex);
-                int shapeValue = block.type.shape[y];
-                shapeValue = shapeValue << block.position.x;
+                int shapeValue = currentType.shape[y];
+                shapeValue = shapeValue << currentX;
 
                 var update = caveValue | shapeValue;
                 bufferSet(rowIndex, update);
@@ -263,7 +256,7 @@ public class Day17 implements Day {
             });
         }
 
-        private String stringForLine(int y, Block block) {
+        private String stringForLine(int y) {
             String result;
             if (y < 0) {
                 result = CORNER + stringForValue(BOTTOM) + CORNER;
@@ -273,21 +266,21 @@ public class Day17 implements Day {
                 result = WALL + stringForValue(EMPTY) + WALL;
             }
 
-            int blockTop = block.position.y;
-            int blockBottom = block.position.y - block.type.height() + 1;
+            int blockTop = currentY;
+            int blockBottom = currentY - currentType.height() + 1;
 
             if (y <= blockTop && y >= blockBottom) {
                 int blockLineIndex = blockTop - y;
 
-                String blockString = stringForValue(block.type.shape[blockLineIndex]);
+                String blockString = stringForValue(currentType.shape[blockLineIndex]);
 
                 StringBuilder withBlock = new StringBuilder(result);
 
-                for (int x = 0; x < block.type.width; x++) {
+                for (int x = 0; x < currentType.width; x++) {
                     var c = blockString.charAt(x);
 
                     if (c == '#') {
-                        withBlock.setCharAt(block.position.x + x + 1, CURRENT_CHAR);
+                        withBlock.setCharAt(currentX + x + 1, CURRENT_CHAR);
                     }
                 }
 
@@ -317,7 +310,7 @@ public class Day17 implements Day {
             var tickCounter = 0L;
 
             while(blockCounter != blockCount) {
-//                LOG.info(this::toString);
+                LOG.info(this::toString);
                 tickCounter++;
                 blockCounter += tick() ? 1 : 0;
 
