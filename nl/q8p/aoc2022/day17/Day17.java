@@ -77,22 +77,22 @@ public class Day17 implements Day {
     }
 
     static class Wind {
-        private final Move[] shifts;
+        private final int[] shifts;
 
         private long nextIndex = 0;
 
         private static final Move LEFT = new Move(-1, 0);
         private static final Move RIGHT = new Move(1, 0);
 
-        Wind(Move[] shifts) {
+        Wind(int[] shifts) {
             this.shifts = shifts;
         }
 
         static Wind parse(String string) {
-            return new Wind(string.chars().mapToObj(c -> c == '>' ? RIGHT : LEFT).toArray(Move[]::new));
+            return new Wind(string.chars().map(c -> c == '>' ? 1 : -1).toArray());
         }
 
-        public Move next() {
+        public int next() {
             return shifts[(int)(nextIndex++ % shifts.length)];
         }
     }
@@ -159,8 +159,14 @@ public class Day17 implements Day {
             removeRedundantRowsAtTheBottom();
 
             currentType = blockType;
-            currentY = bufferSize + blockType.height + EMPTY_ROWS_ABOVE_STACK - 1;
+            currentY = bufferSize + blockType.height - 1;
             currentX = INITIAL_X;
+
+            for (int i = 0; i < EMPTY_ROWS_ABOVE_STACK; i++) {
+                currentX += wind.next();
+                currentX = Math.max(0, currentX);
+                currentX = Math.min(WIDTH - currentType.width, currentX);
+            }
         }
 
         private void removeRedundantRowsAtTheBottom() {
@@ -173,7 +179,7 @@ public class Day17 implements Day {
         }
 
         boolean tick() {
-            applyWind(wind.next().x);
+            applyWind(wind.next());
 
             if (!applyGravity()) {
                 save();
@@ -185,7 +191,6 @@ public class Day17 implements Day {
             return false;
         }
 
-
         boolean applyWind(int deltaX) {
             var candidateX = currentX + deltaX;
 
@@ -195,18 +200,12 @@ public class Day17 implements Day {
 
             boolean possible = true;
 
-            if (currentY - currentType.height + 1 < bufferSize) {
-                for (int i = 0; i < currentType.height; i++) {
-                    int rowIndex = currentY - i;
-                    int world = valueForLine(rowIndex);
+            for (int i = 0; i < currentType.height; i++) {
+                int rowIndex = currentY - i;
 
-                    int shapeLine = currentType.shape[i];
-                    shapeLine = shapeLine << candidateX;
+                int masked = valueForLine(rowIndex) & currentType.shape[i] << candidateX;
 
-                    int masked = shapeLine & world;
-
-                    possible &= masked == 0;
-                }
+                possible &= masked == 0;
             }
 
             if (possible) {
@@ -227,18 +226,13 @@ public class Day17 implements Day {
 
             boolean possible = true;
 
-            if (candidateY - currentType.height + 1 < bufferSize) {
-                for (int i = 0; i < currentType.height; i++) {
-                    int rowIndex = candidateY - i;
-                    int world = valueForLine(rowIndex);
+            for (int i = 0; i < currentType.height; i++) {
+                int rowIndex = candidateY - i;
+                int world = valueForLine(rowIndex);
 
-                    int shapeLine = currentType.shape[i];
-                    shapeLine = shapeLine << currentX;
+                int masked = currentType.shape[i] << currentX & world;
 
-                    int masked = shapeLine & world;
-
-                    possible &= masked == 0;
-                }
+                possible &= masked == 0;
             }
 
             if (possible) {
@@ -344,7 +338,6 @@ public class Day17 implements Day {
             var tickCounter = 0L;
 
             while(blockCounter != blockCount) {
-//                LOG.info(this::toString);
                 tickCounter++;
                 blockCounter += tick() ? 1 : 0;
 
