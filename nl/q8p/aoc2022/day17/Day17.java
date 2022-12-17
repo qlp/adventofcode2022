@@ -112,7 +112,13 @@ public class Day17 implements Day {
     }
 
     static class Cave {
-        List<Integer> rows = new ArrayList<>();
+        private static final int BUFFER_SIZE = 1000;
+        private static final int BUFFER_SHIFT = 100;
+
+        private int[] buffer = new int[BUFFER_SIZE];
+
+        private int top = 0;
+        private int bottom = 0;
 
         long removedToOptimize = 0L;
 
@@ -129,6 +135,31 @@ public class Day17 implements Day {
 
         private Block current;
 
+        public int bufferSize() {
+            if (top >= bottom) {
+                return top - bottom;
+            }
+
+            return top + BUFFER_SIZE - bottom;
+        }
+
+        public void bufferAdd(int value) {
+            top = (top + 1) % BUFFER_SIZE;
+            buffer[top] = value;
+        }
+
+        public int bufferGet(int index) {
+            var bufferIndex = (bottom + index) % BUFFER_SIZE;
+
+            return buffer[bufferIndex];
+        }
+
+        public void bufferSet(int index, int value) {
+            var bufferIndex = (bottom + index) % BUFFER_SIZE;
+
+            buffer[bufferIndex] = value;
+        }
+
         public Cave(Wind wind) {
             this.wind = wind;
 
@@ -136,30 +167,15 @@ public class Day17 implements Day {
         }
 
         void addBlock(BlockType blockType) {
-            removeEmptyRowsAtTheTop();
             removeRedundantRowsAtTheBottom();
 
-            this.current = new Block(blockType, new Position(rows.size() + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1));
+            this.current = new Block(blockType, new Position(bufferSize() + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1));
         }
 
         private void removeRedundantRowsAtTheBottom() {
-            if (rows.size() > 500) {
-                rows = new ArrayList<>(rows.subList(100, rows.size()));
-                removedToOptimize += 100;
-            }
-        }
-
-        private void removeEmptyRowsAtTheTop() {
-            for (int rowNumber = rows.size(); rowNumber >= 0; rowNumber--) {
-                if(rowNumber == 0 || rows.get(rowNumber - 1) != 0) {
-                    if (rowNumber > rows.size()) {
-                        IntStream.range(0, rowNumber - rows.size()).forEach(i -> rows.add(EMPTY));
-                    } else {
-                        IntStream.range(0, rows.size() - rowNumber).forEach(i -> rows.remove(rows.size() - 1));
-                    }
-
-                    break;
-                }
+            if (bufferSize() > BUFFER_SIZE - BUFFER_SHIFT) {
+                bottom = (bottom + BUFFER_SHIFT) % BUFFER_SIZE;
+                removedToOptimize += BUFFER_SHIFT;
             }
         }
 
@@ -211,7 +227,7 @@ public class Day17 implements Day {
         public String toString() {
             var lines = new ArrayList<String>();
 
-            for (int y = Math.max(rows.size() - 1, current.position.y); y >= -1; y--) {
+            for (int y = Math.max(bufferSize() - 1, current.position.y); y >= -1; y--) {
                 lines.add(stringForLine(y, current));
             }
 
@@ -222,16 +238,16 @@ public class Day17 implements Day {
             for (int y = block.type.height() - 1; y >= 0; y--) {
                 var rowIndex = block.position.y - y;
 
-                if (rows.size() < rowIndex + 1) {
-                    rows.add(EMPTY);
+                if (bufferSize() < rowIndex + 1) {
+                    bufferAdd(EMPTY);
                 }
 
-                var caveValue = rows.get(rowIndex);
+                var caveValue = bufferGet(rowIndex);
                 int shapeValue = block.type.shape[y];
                 shapeValue = shapeValue << block.position.x;
 
                 var update = caveValue | shapeValue;
-                rows.set(rowIndex, update);
+                bufferSet(rowIndex, update);
             }
         }
 
@@ -251,8 +267,8 @@ public class Day17 implements Day {
             String result;
             if (y < 0) {
                 result = CORNER + stringForValue(BOTTOM) + CORNER;
-            } else if (y < rows.size()) {
-                result = WALL + stringForValue(rows.get(y)) + WALL;
+            } else if (y < bufferSize()) {
+                result = WALL + stringForValue(bufferGet(y)) + WALL;
             } else {
                 result = WALL + stringForValue(EMPTY) + WALL;
             }
@@ -284,15 +300,15 @@ public class Day17 implements Day {
         private int valueForLine(int y) {
             if (y < 0) {
                 return BOTTOM;
-            } else if (y < rows.size()) {
-                return rows.get(y);
+            } else if (y < bufferSize()) {
+                return bufferGet(y);
             } else {
                 return EMPTY;
             }
         }
 
         public long height() {
-            return removedToOptimize + rows.size();
+            return removedToOptimize + bufferSize();
         }
 
         public long heightAfter(long blockCount) {
