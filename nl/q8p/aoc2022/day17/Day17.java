@@ -105,6 +105,8 @@ public class Day17 implements Day {
         private int top = 0;
         private int bottom = 0;
 
+        private int bufferSize = 0;
+
         long removedToOptimize = 0L;
 
         private static final int WIDTH = 7;
@@ -124,17 +126,19 @@ public class Day17 implements Day {
         private int currentX;
         private int currentY;
 
-        public int bufferSize() {
+        public void updateBufferSize() {
             if (top >= bottom) {
-                return top - bottom;
+                bufferSize = top - bottom;
+            } else {
+                bufferSize = top + BUFFER_SIZE - bottom;
             }
-
-            return top + BUFFER_SIZE - bottom;
         }
 
         public void bufferAdd(int value) {
             top = (top + 1) % BUFFER_SIZE;
             buffer[top] = value;
+
+            updateBufferSize();
         }
 
         public int bufferGet(int index) {
@@ -159,14 +163,16 @@ public class Day17 implements Day {
             removeRedundantRowsAtTheBottom();
 
             currentType = blockType;
-            currentY = bufferSize() + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1;
+            currentY = bufferSize + blockType.height() + EMPTY_ROWS_ABOVE_STACK - 1;
             currentX = INITIAL_X;
         }
 
         private void removeRedundantRowsAtTheBottom() {
-            if (bufferSize() > BUFFER_SIZE - BUFFER_SHIFT) {
+            if (bufferSize > BUFFER_SIZE - BUFFER_SHIFT) {
                 bottom = (bottom + BUFFER_SHIFT) % BUFFER_SIZE;
                 removedToOptimize += BUFFER_SHIFT;
+
+                updateBufferSize();
             }
         }
 
@@ -220,7 +226,7 @@ public class Day17 implements Day {
         public String toString() {
             var lines = new ArrayList<String>();
 
-            for (int y = Math.max(bufferSize() - 1, currentY); y >= -1; y--) {
+            for (int y = Math.max(bufferSize - 1, currentY); y >= -1; y--) {
                 lines.add(stringForLine(y));
             }
 
@@ -231,7 +237,7 @@ public class Day17 implements Day {
             for (int y = currentType.height() - 1; y >= 0; y--) {
                 var rowIndex = currentY - y;
 
-                if (bufferSize() < rowIndex + 1) {
+                if (bufferSize < rowIndex + 1) {
                     bufferAdd(EMPTY);
                 }
 
@@ -260,7 +266,7 @@ public class Day17 implements Day {
             String result;
             if (y < 0) {
                 result = CORNER + stringForValue(BOTTOM) + CORNER;
-            } else if (y < bufferSize()) {
+            } else if (y < bufferSize) {
                 result = WALL + stringForValue(bufferGet(y)) + WALL;
             } else {
                 result = WALL + stringForValue(EMPTY) + WALL;
@@ -293,7 +299,7 @@ public class Day17 implements Day {
         private int valueForLine(int y) {
             if (y < 0) {
                 return BOTTOM;
-            } else if (y < bufferSize()) {
+            } else if (y < bufferSize) {
                 return bufferGet(y);
             } else {
                 return EMPTY;
@@ -301,7 +307,7 @@ public class Day17 implements Day {
         }
 
         public long height() {
-            return removedToOptimize + bufferSize();
+            return removedToOptimize + bufferSize;
         }
 
         public long heightAfter(long blockCount) {
@@ -310,12 +316,12 @@ public class Day17 implements Day {
             var tickCounter = 0L;
 
             while(blockCounter != blockCount) {
-                LOG.info(this::toString);
+//                LOG.info(this::toString);
                 tickCounter++;
                 blockCounter += tick() ? 1 : 0;
 
 
-                if (tickCounter % 10_000_000 == 0) {
+                if (tickCounter % 100_000_000 == 0) {
                     LOG.info("" + tickCounter + ": " + blockCounter + " / " + blockCount + " (" + ((double)blockCounter / blockCount * 100L) + "%)");
                 }
             }
