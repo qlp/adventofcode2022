@@ -188,17 +188,19 @@ public class Day17 implements Day {
             }
         }
 
-        boolean tick() {
-            applyWind(wind.next());
+        void tick() {
+            boolean blockAdded = false;
 
-            if (!applyGravity()) {
-                save();
-                addBlock(currentType.next());
+            do {
+                applyWind(wind.next());
 
-                return true;
-            }
+                if (!applyGravity()) {
+                    save();
+                    addBlock(currentType.next());
 
-            return false;
+                    blockAdded = true;
+                }
+            } while (!blockAdded);
         }
 
         boolean applyWind(int deltaX) {
@@ -345,16 +347,13 @@ public class Day17 implements Day {
         public long heightAfter(long blockCount) {
             var blockCounter = 0L;
 
-            var tickCounter = 0L;
-
             while(blockCounter != blockCount) {
                 LOG.info(toString());
-                tickCounter++;
-                blockCounter += tick() ? 1 : 0;
+                tick();
+                blockCounter++;
 
-
-                if (tickCounter % 100_000_000 == 0) {
-                    LOG.info("" + tickCounter + ": " + blockCounter + " / " + blockCount + " (" + ((double)blockCounter / blockCount * 100L) + "%)");
+                if (blockCounter % 100_000_000 == 0) {
+                    LOG.info("" + blockCounter + " / " + blockCount + " (" + ((double)blockCounter / blockCount * 100L) + "%)");
                 }
             }
 
