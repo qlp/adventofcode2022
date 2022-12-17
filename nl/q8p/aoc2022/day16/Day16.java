@@ -147,13 +147,13 @@ public class Day16 implements Day {
             this.maxSteps = maxSteps;
         }
 
-        List<Route> routes() {
+        Route route() {
             var candidates = valvesByName.values().stream().filter(Valve::functional).toList();
 
-            return routes(new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps), candidates.stream().filter(c -> !c.name.equals("AA")).toList());
+            return route(new Route(valvesByName.get("AA"), Collections.emptyList(), maxSteps), candidates.stream().filter(c -> !c.name.equals("AA")).toList());
         }
 
-        private List<Route> routes(Route from, List<Valve> candidates) {
+        private Route route(Route from, List<Valve> candidates) {
             var newRoutes = new ArrayList<Route>();
 
            candidates.forEach(candidateValve -> {
@@ -169,12 +169,12 @@ public class Day16 implements Day {
                     var newLink = from.withLink(link);
 
                     if (newLink.steps() < maxSteps) {
-                        newRoutes.addAll(routes(newLink, candidates.stream().filter(c -> !c.name().equals(candidateValve.name())).toList()));
+                        newRoutes.add(route(newLink, candidates.stream().filter(c -> !c.name().equals(candidateValve.name())).toList()));
                     }
                 }
             });
 
-            return newRoutes.isEmpty() ? Collections.singletonList(from) : newRoutes;
+            return newRoutes.isEmpty() ? from : newRoutes.stream().max(Comparator.comparingLong(Route::pressure)).orElseThrow();
         }
 
         List<Route2> routes2() {
@@ -374,7 +374,7 @@ public class Day16 implements Day {
 
     @Override
     public Assignment first() {
-        return (run, input) -> Volcano.parse(input, 30).routes().stream().mapToLong(Route::pressure).max().orElseThrow();
+        return (run, input) -> Volcano.parse(input, 30).route().pressure();
     }
 
     @Override
