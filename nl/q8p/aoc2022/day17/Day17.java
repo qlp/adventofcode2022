@@ -5,7 +5,12 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
@@ -34,7 +39,6 @@ public class Day17 implements Day {
         return result;
     }
 
-
     enum BlockType {
         DASH(new String[] { "@@@@" }),
         PLUS(new String[] { " @ ", "@@@", " @ " }),
@@ -53,14 +57,6 @@ public class Day17 implements Day {
             this.width = shape[0].length();
             this.height = shape.length;
         }
-
-        static BlockType first() {
-            return values()[0];
-        }
-
-        BlockType next() {
-            return BlockType.values()[(Arrays.asList(values()).indexOf(this) + 1) % BlockType.values().length];
-        }
     }
 
     record Move(int x, int y) { }
@@ -78,14 +74,21 @@ public class Day17 implements Day {
 
     static class Wind {
         private final int[] shifts;
+        private final int length;
 
-        private long nextIndex = 0;
+        private int nextIndex = 0;
 
         private static final Move LEFT = new Move(-1, 0);
         private static final Move RIGHT = new Move(1, 0);
 
         Wind(int[] shifts) {
-            this.shifts = shifts;
+            var copies = 10;
+            this.shifts = new int[shifts.length * copies];
+            this.length = shifts.length;
+
+            for (int i = 0; i < copies; i++) {
+                System.arraycopy(shifts, 0, this.shifts, length * i, length);
+            }
         }
 
         static Wind parse(String string) {
@@ -93,7 +96,21 @@ public class Day17 implements Day {
         }
 
         public int next() {
-            return shifts[(int)(nextIndex++ % shifts.length)];
+            var result = shifts[nextIndex % length];
+            nextIndex = (nextIndex + 1) % length;
+
+            return result;
+        }
+
+        public int index() {
+            return nextIndex;
+        }
+
+        public int[] get(int number) {
+            var result = new int[number];
+            System.arraycopy(shifts, nextIndex, result, 0, number);
+
+            return result;
         }
     }
 
@@ -123,9 +140,28 @@ public class Day17 implements Day {
 
         private final Move gravity = new Move(0, -1);
 
-        private BlockType currentType;
+        private static final BlockType[] BLOCK_TYPES = new BlockType[] {
+                BlockType.DASH,
+                BlockType.PLUS,
+                BlockType.ANGLE,
+                BlockType.PIPE,
+                BlockType.BLOCK
+        };
+
+        private int currentBlockTypeIndex;
         private int currentX;
         private int currentY;
+
+
+        private int nextBlockTypeIndex() {
+            return (currentBlockTypeIndex + 1) % BLOCK_TYPES.length;
+        }
+
+        static int firstBlockTypeIndex() {
+            return 0;
+        }
+
+        private final Map<List<Integer>, List<Integer>>[][] windIndexToBlockTypeToRows;
 
         public void updateBufferSize() {
             if (top >= bottom) {
@@ -150,15 +186,25 @@ public class Day17 implements Day {
 
         public Cave(Wind wind) {
             this.wind = wind;
+            windIndexToBlockTypeToRows = (Map<List<Integer>, List<Integer>>[][]) new HashMap[wind.shifts.length][];
 
-            addBlock(BlockType.first());
+            for (int w = 0; w < windIndexToBlockTypeToRows.length; w++) {
+                windIndexToBlockTypeToRows[w] = (Map<List<Integer>, List<Integer>>[]) new HashMap[BlockType.values().length];
+
+                for (int b = 0; b < BlockType.values().length; b++) {
+                    windIndexToBlockTypeToRows[w][b] = new HashMap<>();
+                }
+            }
+
+            addBlock(firstBlockTypeIndex());
         }
 
-        void addBlock(BlockType blockType) {
+        void addBlock(int blockTypeIndex) {
             removeRedundantRowsAtTheBottom();
 
-            currentType = blockType;
-            currentY = bufferSize + blockType.height - 1;
+            currentBlockTypeIndex = blockTypeIndex;
+            var currentType = BLOCK_TYPES[currentBlockTypeIndex];
+            currentY = bufferSize + currentType.height - 1;
             currentX = INITIAL_X;
 
             for (int i = 0; i < EMPTY_ROWS_ABOVE_STACK; i++) {
@@ -188,23 +234,58 @@ public class Day17 implements Day {
             }
         }
 
+        long hit = 0;
+        long total = 0;
+
         void tick() {
             boolean blockAdded = false;
 
-            do {
-                applyWind(wind.next());
+            total++;
+            List<Integer> startedWith = recordsAsList();
+            var newRecords = windIndexToBlockTypeToRows[wind.index()][currentBlockTypeIndex].get(startedWith);
 
-                if (!applyGravity()) {
-                    save();
-                    addBlock(currentType.next());
+            if (newRecords == null) {
+                do {
+                    applyWind(wind.next());
 
-                    blockAdded = true;
+                    if (!applyGravity()) {
+                        save();
+                        addBlock(nextBlockTypeIndex());
+
+                        blockAdded = true;
+                    }
+                } while (!blockAdded);
+
+                windIndexToBlockTypeToRows[wind.index()][currentBlockTypeIndex].put(startedWith, recordsAsList());
+            } else {
+                hit++;
+                for (int i = 0; i < newRecords.size(); i++) {
+                    buffer[i] = newRecords.get(i);
                 }
-            } while (!blockAdded);
+
+                bottom = 0;
+                top = newRecords.size();
+                bufferSize = newRecords.size();
+            }
+            if (total % 1_000_000 == 0) {
+                LOG.info("wind: " + hit + " " + total + " = " + ((double) hit / total * 100));
+            }
+        }
+
+        List<Integer> recordsAsList() {
+            var result = new ArrayList<Integer>(bufferSize);
+
+            for (int rowIndex = 0; rowIndex < bufferSize; rowIndex++) {
+                result.add(buffer[(bottom + rowIndex) % BUFFER_SIZE]);
+            }
+
+            return result;
         }
 
         boolean applyWind(int deltaX) {
             var candidateX = currentX + deltaX;
+
+            var currentType = BLOCK_TYPES[currentBlockTypeIndex];
 
             if (candidateX < 0 || (candidateX + currentType.width) > WIDTH) {
                 return false;
@@ -237,6 +318,7 @@ public class Day17 implements Day {
             }
 
             boolean possible = true;
+            var currentType = BLOCK_TYPES[currentBlockTypeIndex];
 
             for (int i = 0; i < currentType.height; i++) {
                 int rowIndex = candidateY - i;
@@ -268,6 +350,7 @@ public class Day17 implements Day {
         }
 
         private void save() {
+            var currentType = BLOCK_TYPES[currentBlockTypeIndex];
             for (int y = currentType.height - 1; y >= 0; y--) {
                 var rowIndex = currentY - y;
 
@@ -305,6 +388,8 @@ public class Day17 implements Day {
             } else {
                 result = WALL + stringForValue(EMPTY) + WALL;
             }
+
+            var currentType = BLOCK_TYPES[currentBlockTypeIndex];
 
             int blockTop = currentY;
             int blockBottom = currentY - currentType.height + 1;
@@ -348,7 +433,7 @@ public class Day17 implements Day {
             var blockCounter = 0L;
 
             while(blockCounter != blockCount) {
-                LOG.info(toString());
+//                LOG.info(toString());
                 tick();
                 blockCounter++;
 
