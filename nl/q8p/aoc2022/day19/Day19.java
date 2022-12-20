@@ -257,18 +257,18 @@ public class Day19 implements Day {
     public long findMax(World start) {
 
         Set<World> worlds = new HashSet<>(List.of(start));
-        var maxWorldComparing = 10000;
+        var maxWorldComparing = 100000;
 
         for (int minute = 0; minute < start.clock.timeLeft; minute++) {
-            LOG.info("minute: " + minute + ", world count: " + worlds.size());
-            worlds.stream()
-                    .sorted(Comparator.comparing(world -> -world.score()))
-                    .limit(20)
-                    .toList()
-                    .stream()
-                    .sorted(Comparator.comparingLong(world -> world.robots.ore))
-                    .forEach(world ->
-                    LOG.info("robots: " + world.robots + ", resources: " + world.resources + ": " + world.score()));
+//            LOG.info("minute: " + minute + ", world count: " + worlds.size());
+//            worlds.stream()
+//                    .sorted(Comparator.comparing(world -> -world.score()))
+//                    .limit(20)
+//                    .toList()
+//                    .stream()
+//                    .sorted(Comparator.comparingLong(world -> world.robots.ore))
+//                    .forEach(world ->
+//                    LOG.info("robots: " + world.robots + ", resources: " + world.resources + ": " + world.score()));
 
             var newWorlds = worlds.stream()
                     .flatMap(world -> world.nextWorlds().stream())
@@ -283,9 +283,11 @@ public class Day19 implements Day {
                     .limit(maxWorldComparing)
                     .collect(Collectors.toSet());
         }
-        LOG.info("minute: LAST, world count: " + worlds.size());
-        worlds.stream().sorted(Comparator.comparing(world -> -world.score())).limit(10).forEach(world ->
-                LOG.info("robots: " + world.robots + ", resources: " + world.resources + ": " + world.score()));
+//        LOG.info("minute: LAST, world count: " + worlds.size());
+//        worlds.stream().sorted(Comparator.comparing(world -> -world.score())).limit(10).forEach(world ->
+//                LOG.info("robots: " + world.robots + ", resources: " + world.resources + ": " + world.score()));
+
+
 
         return worlds.stream().mapToLong(world -> world.resources.geode).max().orElse(0);
     }
@@ -361,6 +363,29 @@ public class Day19 implements Day {
 
     @Override
     public Assignment second() {
-        return (run, input) -> "";
+        return (run, input) -> {
+            var all = Arrays.stream(input.split("\\n")).map(Blueprint::parse).toList();
+
+            var blueprints = all.subList(0, Math.min(all.size(), 3));
+
+            long total = 0;
+            for(var blueprint : blueprints) {
+                LOG.info(blueprint::toString);
+
+                var world = new World(blueprint, new Clock(32), new Resources(0L, 0L, 0L, 0L), new Robots(1L, 0L, 0L, 0L));
+
+                long geodes = findMax(world);
+
+                LOG.info(() -> "blueprint: " + blueprint.id + ": " + geodes + " geodes");
+
+                if (total == 0) {
+                    total = geodes;
+                } else {
+                    total *= geodes;
+                }
+            }
+
+            return total;
+        };
     }
 }
