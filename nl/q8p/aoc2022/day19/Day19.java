@@ -3,181 +3,335 @@ package nl.q8p.aoc2022.day19;
 import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.Map;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 public class Day19 implements Day {
 
     private static final Logger LOG = Logger.getLogger(Day19.class.getName());
 
-    record Robot(ResourceType type, Map<ResourceType, Long> costs) {
+    static Long parseResource(String string, String resourceName) {
+        var stringThatEndsWithValue = string.substring(0, string.lastIndexOf(" " + resourceName));
 
-        boolean canBuild(Map<ResourceType, Long> robots) {
-            return nonZero(costs).containsAll(nonZero(robots));
+        return Long.parseLong(stringThatEndsWithValue.substring(stringThatEndsWithValue.lastIndexOf(' ') + 1));
+    }
+
+    record OreRobot(long ore) {
+        boolean canCreateWith(Resources resources) {
+            return ore <= resources.ore;
         }
 
-        @Override
-        public String toString() {
-            return Arrays.stream(ResourceType.values())
-                    .filter(resourceType -> resourceType != ResourceType.GEODE)
-                    .filter(resourceType -> costs.getOrDefault(resourceType, 0L) > 0L)
-                    .map(resourceType -> "" + costs.get(resourceType) + " " + resourceType.name().toLowerCase())
-                    .collect(Collectors.joining(" and "));
-        }
-
-        static Robot parse(String string, String name) {
-            var prefix = "Each " + name + " robot costs ";
-            var beginOfRobotIndex = string.indexOf(prefix);
-            var endOfRobotIndex = string.indexOf('.', beginOfRobotIndex);
-
-            var robotDescription = string.substring(beginOfRobotIndex, endOfRobotIndex);
-
-            return new Robot(
-                ResourceType.valueOf(name.toUpperCase()),
-                Arrays.stream(ResourceType.values())
-                        .filter(resourceType -> resourceType != ResourceType.GEODE)
-                        .collect(Collectors.toMap(
-                                resourceType -> resourceType,
-                                resourceType -> parseResource(robotDescription, resourceType.name().toLowerCase()))));
-        }
-
-        private static long parseResource(String string, String name) {
-            var costs = string.substring(string.indexOf("costs"));
-            int endOfCountIndex = costs.lastIndexOf(name) - 1;
-
-            if (endOfCountIndex < 0) {
-                return 0;
-            }
-
-            int beginOfCountIndex = costs.substring(0, endOfCountIndex).lastIndexOf(' ') + 1;
-
-            return Long.parseLong(costs.substring(beginOfCountIndex, endOfCountIndex));
+        public static OreRobot parse(String string) {
+            return new OreRobot(parseResource(string, "ore"));
         }
     }
 
-    enum ResourceType {
-        ORE, CLAY, OBSIDIAN, GEODE
+    record ClayRobot(long ore) {
+
+        boolean canCreateWith(Resources resources) {
+            return ore <= resources.ore;
+        }
+
+        public static ClayRobot parse(String string) {
+            return new ClayRobot(parseResource(string, "ore"));
+        }
+
     }
 
-    record Blueprint(int id, Map<ResourceType, Robot> robots) {
+    record ObsidianRobot(long ore, long clay) {
+        boolean canCreateWith(Resources resources) {
+            return ore <= resources.ore && clay <= resources.clay;
+        }
 
-        @Override
+        public static ObsidianRobot parse(String string) {
+            return new ObsidianRobot(parseResource(string, "ore"), parseResource(string, "clay"));
+        }
+    }
+
+    record GeodeRobot(long ore, long obsidian) {
+        boolean canBuyEveryTimeWith(Robots robots) {
+            return ore <= robots.ore && obsidian <= robots.obsidian;
+        }
+
+        boolean canCreateWith(Resources resources) {
+            return ore <= resources.ore && obsidian <= resources.obsidian;
+        }
+
+        public static GeodeRobot parse(String string) {
+            return new GeodeRobot(parseResource(string, "ore"), parseResource(string, "obsidian"));
+        }
+    }
+
+    record Blueprint(Long id, OreRobot oreRobot, ClayRobot clayRobot, ObsidianRobot obsidianRobot, GeodeRobot geodeRobot) {
+        static Blueprint parse(String string) {
+            var robotString = string.split("\\. ");
+            return new Blueprint(
+                Long.parseLong(string.substring(string.indexOf(' ') + 1, string.indexOf(":"))),
+                OreRobot.parse(robotString[0]),
+                ClayRobot.parse(robotString[1]),
+                ObsidianRobot.parse(robotString[2]),
+                GeodeRobot.parse(robotString[3])
+            );
+        }
+
         public String toString() {
             return "Blueprint " + id + ":\n" +
-                "  Each ore robot costs " + robots.get(ResourceType.ORE) + ".\n" +
-                "  Each clay robot costs " + robots.get(ResourceType.CLAY) + ".\n" +
-                "  Each obsidian robot costs " + robots.get(ResourceType.OBSIDIAN) + ".\n" +
-                "  Each geode robot costs " + robots.get(ResourceType.GEODE) + ".\n";
-        }
-
-        static Blueprint parse(String string) {
-            return new Blueprint(
-                    parseId(string),
-                    Arrays.stream(ResourceType.values()).map(t -> Robot.parse(string, t.name().toLowerCase())).collect(Collectors.toMap(robot -> robot.type, robot -> robot))
-                );
-        }
-
-        private static int parseId(String string) {
-            return Integer.parseInt(string.substring(string.indexOf(' ') + 1, string.indexOf(':')));
+                    "  Each ore robot costs " + oreRobot.ore + " ore.\n" +
+                    "  Each clay robot costs " + clayRobot.ore + " ore.\n" +
+                    "  Each obsidian robot costs " + obsidianRobot.ore + " ore and " + obsidianRobot.clay + " clay.\n" +
+                    "  Each geode robot costs " + geodeRobot.ore + " ore and " + geodeRobot.obsidian + " obsidian.";
         }
     }
 
-    static class World {
-        private final long timeLeft;
-
-        private final Blueprint blueprint;
-
-        private final Map<ResourceType, Long> resources;
-
-        private final Map<ResourceType, Long> robots;
-
-        World(Blueprint blueprint, long timeLeft) {
-            this.timeLeft = timeLeft;
-            this.blueprint = blueprint;
-            resources = new EnumMap<>(ResourceType.class);
-            robots = new EnumMap<>(ResourceType.class);
-            robots.put(ResourceType.ORE, 1L);
+    record Clock(long timeLeft) {
+        public Clock tick() {
+            return new Clock(timeLeft - 1);
         }
 
-        World(Blueprint blueprint, long timeLeft, Map<ResourceType, Long> resources, Map<ResourceType, Long> robots) {
-            this.timeLeft = timeLeft;
-            this.blueprint = blueprint;
-            this.resources = resources;
-            this.robots = robots;
-        }
-
-        World tick() {
-            return new World(blueprint,
-                timeLeft - 1,
-                Arrays.stream(ResourceType.values()).collect(Collectors.toMap(
-                    resourceType -> resourceType,
-                    resourceType -> resources.computeIfAbsent(resourceType, r -> 0L) + robots.computeIfAbsent(resourceType, r -> 0L))),
-                robots
-            );
-        }
-
-        private World build(Robot robot) {
-            var ticks = nonZero(robot.costs)
-                    .stream()
-                    .mapToLong(resourceType -> ticksToHave(resourceType, robot.costs.get(resourceType)))
-                    .max()
-                    .orElse(0);
-
-            var newResources = new EnumMap<>(resources);
-            var newRobots = new EnumMap<>(robots);
-
-            Arrays.stream(ResourceType.values()).forEach(resourceType -> newResources.put(resourceType,
-                    newResources.getOrDefault(resourceType, 0L) + robots.getOrDefault(resourceType, 0L) * ticks));
-
-            if (ticks < timeLeft) {
-                Arrays.stream(ResourceType.values()).forEach(resourceType -> newResources.put(resourceType,
-                        newResources.getOrDefault(resourceType, 0L) - robot.costs.getOrDefault(resourceType, 0L)));
-
-                newRobots.put(robot.type, newRobots.getOrDefault(robot.type, 0L) + 1L);
-            }
-
-            return new World(blueprint,
-                    Math.max(0L, timeLeft - ticks),
-                    newResources,
-                    newRobots
-            );
-        }
-
-        private long ticksToHave(ResourceType resourceType, long amount) {
-            var need = amount - resources.getOrDefault(resourceType, 0L);
-            var producePerTick = robots.getOrDefault(resourceType, Long.MAX_VALUE);
-
-            return Math.max(0, need  / producePerTick + (need % producePerTick == 0 ? 0 : 1));
-        }
-
-        boolean outOfTime() {
+        public boolean outOfTime() {
             return timeLeft == 0;
         }
+    }
 
-        long findMax(ResourceType resourceType) {
-            LOG.info(() -> "time: " + timeLeft + ", resource: " + resources + ", robots: " + robots);
+    record Resources(long ore, long clay, long obsidian, long geode) {
 
-            if (outOfTime()) {
-                return resources.getOrDefault(resourceType, 0L);
-            }
+        public Resources withHarvestOf(Robots robots) {
+            return new Resources(
+                ore + robots.ore,
+                clay + robots.clay,
+                obsidian + robots.obsidian,
+                geode + robots.geode
+            );
+        }
 
-            return blueprint.robots
-                    .values()
-                    .stream()
-                    .filter(robot -> robot.canBuild(robots))
-                    .map(this::build)
-                    .mapToLong(w -> w.findMax(resourceType))
-                    .max()
-                    .orElse(0L);
+        public Resources unchanged() {
+            return new Resources(ore, clay, obsidian, geode);
+        }
+
+        Resources buying(OreRobot robot) {
+            return new Resources(ore - robot.ore, clay, obsidian, geode);
+        }
+
+        Resources buying(ClayRobot robot) {
+            return new Resources(ore - robot.ore, clay, obsidian, geode);
+        }
+
+        Resources buying(ObsidianRobot robot) {
+            return new Resources(ore - robot.ore, clay - robot.clay, obsidian, geode);
+        }
+
+        Resources buying(GeodeRobot robot) {
+            return new Resources(ore - robot.ore, clay, obsidian - robot.obsidian, geode);
+        }
+
+        @Override
+        public String toString() {
+            return "" + ore + ", " + clay + ", " + obsidian + ", " + geode;
         }
     }
 
-    static Set<ResourceType> nonZero(Map<ResourceType, Long> source) {
-        return source.entrySet().stream().filter(e -> e.getValue() > 0L).map(Map.Entry::getKey).collect(Collectors.toSet());
+    record Robots(long ore, long clay, long obsidian, long geode) {
+
+        Robots unchanged() {
+            return new Robots(ore, clay, obsidian, geode);
+        }
+
+        Robots addOre() {
+            return new Robots(ore + 1, clay, obsidian, geode);
+        }
+
+        Robots addClay() {
+            return new Robots(ore, clay + 1, obsidian, geode);
+        }
+
+        Robots addObsidian() {
+            return new Robots(ore, clay, obsidian + 1, geode);
+        }
+
+        Robots addGeode() {
+            return new Robots(ore, clay, obsidian, geode + 1);
+        }
+
+        @Override
+        public String toString() {
+            return "" + ore + ", " + clay + ", " + obsidian + ", " + geode;
+        }
+    }
+
+    record World(Blueprint blueprint, Clock clock, Resources resources, Robots robots) {
+//
+//        public long findMaxRecursive() {
+//
+//            long result = -1;
+//            if (blueprint.geodeRobot.canBuyEveryTimeWith(robots)) {
+//                result = resources.geode + LongStream.range(1, clock.timeLeft).map(i -> robots.geode + i).sum();
+//            } else if (clock.outOfTime()) {
+//                result = resources.geode;
+//            }
+//
+//            if (clock.timeLeft < blueprint.geodeRobot.obsidian - resources.obsidian) {
+//                // can never make enough obsidian
+//                result = 0;
+//            }
+//            if (clock.timeLeft < blueprint.geodeRobot.ore - resources.ore) {
+//                // can never make enough ore
+//                result = 0;
+//            }
+//
+//            if (result != -1) {
+//                return result;
+//            }
+//
+//            return nextWorlds().stream().mapToLong(World::findMaxRecursive).max().orElse(resources.geode);
+//        }
+
+        public long score() {
+            return resources.geode;
+        }
+
+        public List<World> nextWorlds() {
+            var result = new ArrayList<World>();
+
+            var canBuyOre = blueprint.oreRobot.canCreateWith(resources);
+            var canBuyClay = blueprint.clayRobot.canCreateWith(resources);
+            var canBuyObsidian = blueprint.obsidianRobot.canCreateWith(resources);
+            var canBuyGeode = blueprint.geodeRobot.canCreateWith(resources);
+
+            if (canBuyGeode) {
+                result.add(withGeode());
+            }
+            if (canBuyObsidian) {
+                result.add(withObsidian());
+            }
+            if (canBuyClay) {
+                result.add(withClay());
+            }
+            if (canBuyOre) {
+                result.add(withOre());
+            }
+
+            result.add(unchanged());
+
+            return result;
+        }
+
+        World unchanged() {
+            return next(resources.withHarvestOf(robots).unchanged(), robots.unchanged());
+        }
+
+        World withOre() {
+            return next(resources.withHarvestOf(robots).buying(blueprint.oreRobot), robots.addOre());
+        }
+
+        World withClay() {
+            return next(resources.withHarvestOf(robots).buying(blueprint.clayRobot), robots.addClay());
+        }
+
+        World withObsidian() {
+            return next(resources.withHarvestOf(robots).buying(blueprint.obsidianRobot), robots.addObsidian());
+        }
+
+        World withGeode() {
+            return next(resources.withHarvestOf(robots).buying(blueprint.geodeRobot), robots.addGeode());
+        }
+
+        World next(Resources newResources, Robots newRobots) {
+            return new World(blueprint, clock.tick(), newResources, newRobots);
+        }
+
+        @Override
+        public String toString() {
+            return "" + blueprint.id + " robots: " + robots + " resources: " + resources;
+        }
+    }
+
+    public long findMax(World start) {
+
+        Set<World> worlds = new HashSet<>(List.of(start));
+        var maxWorldComparing = 10000;
+
+        for (int minute = 0; minute < start.clock.timeLeft; minute++) {
+            LOG.info("minute: " + minute + ", world count: " + worlds.size());
+            worlds.stream()
+                    .sorted(Comparator.comparing(world -> -world.score()))
+                    .limit(20)
+                    .toList()
+                    .stream()
+                    .sorted(Comparator.comparingLong(world -> world.robots.ore))
+                    .forEach(world ->
+                    LOG.info("robots: " + world.robots + ", resources: " + world.resources + ": " + world.score()));
+
+            var newWorlds = worlds.stream()
+                    .flatMap(world -> world.nextWorlds().stream())
+                    .collect(Collectors.groupingBy(world -> world.robots))
+                    .values()
+                    .stream()
+                    .flatMap(w -> withMaxResources(w).stream())
+                    .collect(Collectors.toSet());
+
+            worlds = newWorlds.stream()
+                    .sorted(Comparator.comparing(world -> -world.score()))
+                    .limit(maxWorldComparing)
+                    .collect(Collectors.toSet());
+        }
+        LOG.info("minute: LAST, world count: " + worlds.size());
+        worlds.stream().sorted(Comparator.comparing(world -> -world.score())).limit(10).forEach(world ->
+                LOG.info("robots: " + world.robots + ", resources: " + world.resources + ": " + world.score()));
+
+        return worlds.stream().mapToLong(world -> world.resources.geode).max().orElse(0);
+    }
+
+    private List<World> withMaxResources(List<World> worlds) {
+        var resources = worlds.stream().map(w -> w.resources).distinct().toList();
+
+        var result = new ArrayList<Resources>();
+
+        for (int i = 0; i < resources.size(); i++) {
+            var candidate = resources.get(i);
+            if (result.isEmpty()) {
+                result.add(candidate);
+            } else {
+                boolean replaced = false;
+                boolean useful = false;
+                for (int j = 0; j < result.size(); j++) {
+                    var competitor = result.get(j);
+
+                    if (
+                            candidate.ore >= competitor.ore &&
+                            candidate.clay >= competitor.clay &&
+                            candidate.obsidian >= competitor.obsidian &&
+                            candidate.geode >= competitor.geode
+                    ) {
+                        result.set(j, candidate);
+                        replaced = true;
+                    } else if (
+                            candidate.ore <= competitor.ore &&
+                            candidate.clay <= competitor.clay &&
+                            candidate.obsidian <= competitor.obsidian &&
+                            candidate.geode <= competitor.geode
+                    ) {
+                        // useless
+                    } else {
+                        useful = true;
+                    }
+                }
+
+                if (!replaced && useful) {
+                    result.add(candidate);
+                }
+            }
+        }
+
+        return worlds.stream().filter(world -> result.contains(world.resources)).distinct().toList();
     }
 
 
@@ -186,14 +340,13 @@ public class Day19 implements Day {
         return (run, input) -> {
             var blueprints = Arrays.stream(input.split("\\n")).map(Blueprint::parse).toList();
 
-            long total = 0L;
-
+            var total = 0;
             for(var blueprint : blueprints) {
                 LOG.info(blueprint::toString);
 
-                var world = new World(blueprint, 30);
+                var world = new World(blueprint, new Clock(24), new Resources(0L, 0L, 0L, 0L), new Robots(1L, 0L, 0L, 0L));
 
-                long geodes = world.findMax(ResourceType.GEODE);
+                long geodes = findMax(world);
 
                 long qualityLevel = geodes * world.blueprint.id;
 
