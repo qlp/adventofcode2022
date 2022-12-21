@@ -5,9 +5,8 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -15,7 +14,16 @@ import java.util.stream.IntStream;
 
 public class Day15 implements Day {
 
-    record Point(int x, int y) {
+    static class Point {
+        int x;
+        int y;
+
+        public Point(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+
         int distanceTo(Point other) {
             return Math.abs(x - other.x) + Math.abs(y - other.y);
         }
@@ -25,6 +33,24 @@ public class Day15 implements Day {
                 Integer.parseInt(string.substring(string.indexOf("x=") + "x=".length(), string .indexOf(','))),
                 Integer.parseInt(string.substring(string.indexOf("y=") + "y=".length()))
             );
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Point point = (Point) o;
+
+            if (x != point.x) return false;
+            return y == point.y;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = x;
+            result = 31 * result + y;
+            return result;
         }
     }
 
@@ -81,16 +107,16 @@ public class Day15 implements Day {
             return new World(Arrays.stream(string.split("\n")).map(Sensor::parse).toList());
         }
 
-        boolean hasCoverage(Point point) {
+        static boolean hasCoverage(Point point, Map<Point, Thing> things, Collection<Sensor> sensors) {
             return !things.containsKey(point) && sensors.stream().anyMatch(s -> s.covers(point));
         }
 
-        boolean isUncovered(Point point) {
+        static boolean isUncovered(Point point, Map<Point, Thing> things, Collection<Sensor> sensors) {
             return !things.containsKey(point) && sensors.stream().noneMatch(s -> s.covers(point));
         }
 
         List<Point> uncoveredPointsBetween(Point from, Point until) {
-            final int chunks = 1000;
+            final int chunks = 100;
             final int chunkSize = (until.y - from.y) / chunks;
 
             return IntStream.range(0, chunks)
@@ -103,34 +129,55 @@ public class Day15 implements Day {
         List<Point> uncoveredPointsBetweenForThread(Point from, Point until) {
             var result = new ArrayList<Point>();
 
-            var sensorByVisibleFromY = sensors.stream().collect(Collectors.groupingBy(s -> Math.max(from.y, s.visibleFromY)));
-            var sensorByInvisibleFromY = sensors.stream().collect(Collectors.groupingBy(s -> s.invisibleAfterY));
+            var sensorByVisibleFromY = sensors.stream()
+                    .filter(s -> s.invisibleAfterY >= from.y)
+                    .collect(Collectors.groupingBy(s -> Math.max(from.y, s.visibleFromY)));
 
             var currentX = from.x;
             var currentY = from.y;
 
-            var relevantSensors = new HashSet<>(sensorByVisibleFromY.get(from.y));
+            var relevantSensors = new ArrayList<>(sensorByVisibleFromY.get(from.y));
+
+            var cursor = new Point(0, 0);
 
             while (currentX <= until.x && currentY <= until.y) {
-                var current = new Point(currentX, currentY);
+                cursor.x = currentX;
+                cursor.y = currentY;
 
-                if (isUncovered(current)) {
-                    result.add(current);
+                var covered = things.containsKey(cursor);
+
+                var iterator = relevantSensors.iterator();
+                var newCurrentX = currentX;
+                while (iterator.hasNext()) {
+                    var sensor = iterator.next();
+
+                    covered |= sensor.covers(cursor);
+
+                    if (sensor.covers(cursor)) {
+                        newCurrentX = Math.max(newCurrentX, sensor.lastCoveredXAt(cursor.y) + 1);
+                    }
+                    if (sensor.invisibleAfterY == currentY) {
+                        iterator.remove();
+                    }
+                }
+                if (newCurrentX != currentX) {
+                    currentX = newCurrentX;
+                } else {
+                    currentX = Integer.MAX_VALUE;
                 }
 
-                currentX = relevantSensors
-                        .stream()
-                        .filter(s -> s.covers(current))
-                        .mapToInt(s -> s.lastCoveredXAt(current.y) + 1)
-                        .max()
-                        .orElse(Integer.MAX_VALUE);
+                if (!covered) {
+                    result.add(cursor);
+                }
 
                 if (currentX > until.x) {
                     currentX = from.x;
                     currentY++;
 
-                    relevantSensors.removeAll(sensorByInvisibleFromY.getOrDefault(currentY, Collections.emptyList()));
-                    relevantSensors.addAll(sensorByVisibleFromY.getOrDefault(currentY, Collections.emptyList()));
+                    var sensorsToAdd = sensorByVisibleFromY.get(currentY);
+                    if (sensorsToAdd != null) {
+                        relevantSensors.addAll(sensorsToAdd);
+                    }
                 }
             }
 
@@ -147,7 +194,7 @@ public class Day15 implements Day {
             var x = minX;
             var hasCoverage = true;
             while (hasCoverage) {
-                hasCoverage = hasCoverage(new Point(x, y));
+                hasCoverage = hasCoverage(new Point(x, y), things, sensors);
 
                 if (hasCoverage) {
                     totalCoverage++;
@@ -159,7 +206,7 @@ public class Day15 implements Day {
             x = minX + 1;
             hasCoverage = true;
             while (hasCoverage || x <= maxX) {
-                hasCoverage = hasCoverage(new Point(x, y));
+                hasCoverage = hasCoverage(new Point(x, y), things, sensors);
 
                 if (hasCoverage) {
                     totalCoverage++;
