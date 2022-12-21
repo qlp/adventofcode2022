@@ -74,6 +74,14 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
 
         if (runs.contains(Run.REAL)) {
             try {
+//                var maxPreHeatMillis = 10_000;
+                var maxPreHeatMillis = -1;
+                var maxReRunUntil = System.currentTimeMillis() + maxPreHeatMillis;
+
+                while (System.currentTimeMillis() < maxReRunUntil) {
+                    assignment.run(Run.REAL, assignmentData.real);
+                }
+
                 final var actual = run(() -> assignment.run(Run.REAL, assignmentData.real).toString());
                 logResult(actual, "REAL");
             } catch (final Exception exception) {
