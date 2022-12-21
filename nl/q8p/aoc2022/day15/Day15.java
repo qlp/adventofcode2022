@@ -5,9 +5,13 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Day15 implements Day {
 
@@ -44,6 +48,14 @@ public class Day15 implements Day {
         public int lastCoveredXAt(int y) {
             return position.x + distanceToBeacon() - Math.abs(position.y - y);
         }
+
+        public int visibleFromY() {
+            return position.y - distanceToBeacon();
+        }
+
+        public int invisibleAfterY() {
+            return position.y + distanceToBeacon();
+        }
     }
 
     enum Thing {
@@ -77,10 +89,26 @@ public class Day15 implements Day {
         }
 
         List<Point> uncoveredPointsBetween(Point from, Point until) {
+            final int chunks = 1000;
+            final int chunkSize = (until.y - from.y) / chunks;
+
+            return IntStream.range(0, chunks)
+                    .parallel()
+                    .boxed()
+                    .flatMap(chunk -> uncoveredPointsBetweenForThread(new Point(from.x, from.y + chunk * chunkSize), new Point(until.x, from.y + (chunk + 1) * chunkSize)).stream())
+                    .toList();
+        }
+
+        List<Point> uncoveredPointsBetweenForThread(Point from, Point until) {
             var result = new ArrayList<Point>();
+
+            var sensorByVisibleFromY = sensors.stream().collect(Collectors.groupingBy(s -> Math.max(from.y, s.visibleFromY())));
+            var sensorByInvisibleFromY = sensors.stream().collect(Collectors.groupingBy(Sensor::invisibleAfterY));
 
             var currentX = from.x;
             var currentY = from.y;
+
+            var relevantSensors = new HashSet<>(sensorByVisibleFromY.get(from.y));
 
             while (currentX <= until.x && currentY <= until.y) {
                 var current = new Point(currentX, currentY);
@@ -89,7 +117,7 @@ public class Day15 implements Day {
                     result.add(current);
                 }
 
-                currentX = sensors
+                currentX = relevantSensors
                         .stream()
                         .filter(s -> s.covers(current))
                         .mapToInt(s -> s.lastCoveredXAt(current.y) + 1)
@@ -99,6 +127,9 @@ public class Day15 implements Day {
                 if (currentX > until.x) {
                     currentX = from.x;
                     currentY++;
+
+                    relevantSensors.removeAll(sensorByInvisibleFromY.getOrDefault(currentY, Collections.emptyList()));
+                    relevantSensors.addAll(sensorByVisibleFromY.getOrDefault(currentY, Collections.emptyList()));
                 }
             }
 
@@ -107,7 +138,7 @@ public class Day15 implements Day {
 
         int coveredLinesAtRow(int y) {
             var minX = sensors.stream().mapToInt(s -> Math.min(s.beacon.x, s.position.x)).min().orElseThrow();
-            var maxX = sensors.stream().mapToInt(s -> Math.min(s.beacon.x, s.position.x)).max().orElseThrow();
+            var maxX = sensors.stream().mapToInt(s -> Math.max(s.beacon.x, s.position.x)).max().orElseThrow();
 
             var totalCoverage = 0;
 
