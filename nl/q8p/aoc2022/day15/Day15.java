@@ -28,14 +28,23 @@ public class Day15 implements Day {
         }
     }
 
-    record Sensor(Point position, Point beacon) {
+    static class Sensor {
+        private final Point position;
+        private final Point beacon;
+        private final int distanceToBeacon;
+        private final int visibleFromY;
+        private final int invisibleAfterY;
 
-        int distanceToBeacon() {
-            return position.distanceTo(beacon);
+        public Sensor(Point position, Point beacon) {
+            this.position = position;
+            this.beacon = beacon;
+            this.distanceToBeacon = position.distanceTo(beacon);
+            this.visibleFromY = position.y - distanceToBeacon;
+            this.invisibleAfterY = position.y + distanceToBeacon;
         }
 
         boolean covers(Point point) {
-            return distanceToBeacon() >= position.distanceTo(point);
+            return distanceToBeacon >= position.distanceTo(point);
         }
 
         static Sensor parse(String string) {
@@ -46,15 +55,7 @@ public class Day15 implements Day {
         }
 
         public int lastCoveredXAt(int y) {
-            return position.x + distanceToBeacon() - Math.abs(position.y - y);
-        }
-
-        public int visibleFromY() {
-            return position.y - distanceToBeacon();
-        }
-
-        public int invisibleAfterY() {
-            return position.y + distanceToBeacon();
+            return position.x + distanceToBeacon - Math.abs(position.y - y);
         }
     }
 
@@ -102,8 +103,8 @@ public class Day15 implements Day {
         List<Point> uncoveredPointsBetweenForThread(Point from, Point until) {
             var result = new ArrayList<Point>();
 
-            var sensorByVisibleFromY = sensors.stream().collect(Collectors.groupingBy(s -> Math.max(from.y, s.visibleFromY())));
-            var sensorByInvisibleFromY = sensors.stream().collect(Collectors.groupingBy(Sensor::invisibleAfterY));
+            var sensorByVisibleFromY = sensors.stream().collect(Collectors.groupingBy(s -> Math.max(from.y, s.visibleFromY)));
+            var sensorByInvisibleFromY = sensors.stream().collect(Collectors.groupingBy(s -> s.invisibleAfterY));
 
             var currentX = from.x;
             var currentY = from.y;
