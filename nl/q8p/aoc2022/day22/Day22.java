@@ -5,9 +5,11 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
@@ -26,7 +28,7 @@ public class Day22 implements Day {
     }
 
     enum Orientation {
-        TOP(0, -1, 1, 3, 3),
+        UP(0, -1, 1, 3, 3),
         RIGHT(1, 0, 2, 0, 0),
         DOWN(0, 1, 3, 1, 1),
         LEFT(-1, 0, 0, 2, 2);
@@ -255,13 +257,149 @@ public class Day22 implements Day {
         }
     }
 
-    static class Board {
+    record SideCoordinate(int x, int y) { }
+
+    enum SideType {
+        TOP,
+        BOTTOM,
+        LEFT,
+        RIGHT,
+        UP,
+        DOWN;
+    }
+
+    enum ConnectionType {
+        ROOT, ABOVE, LEFT, RIGHT
+    }
+
+    static class Side {
+        final Side connection;
+
+        final ConnectionType connectionType;
+
+        final int x;
+        final int y;
+
+
+        SideCoordinate toSideCoordinate(int cubeSize, Position position) {
+            return new SideCoordinate(position.x - x * cubeSize, position.y - y * cubeSize);
+        }
+
+        Position toPosition(int cubeSize, SideCoordinate sideCoordinate) {
+            return new Position(cubeSize * x + sideCoordinate.x, cubeSize * y + sideCoordinate.y);
+        }
+
+        boolean contains(int boardSize, Position position) {
+            return
+                position.x >= x * boardSize &&
+                position.x < (x + 1) * boardSize &&
+                position.y >= y * boardSize &&
+                position.y < (y + 1) * boardSize;
+        }
+
+        Side(int x, int y, Side connection, ConnectionType connectionType) {
+            this.x = x;
+            this.y = y;
+            this.connection = connection;
+            this.connectionType = connectionType;
+        }
+    }
+
+    enum CubeTileType {
+        WALL, OPEN
+    }
+
+    static class SecondMoveLogic implements MoveLogic{
+
+        public Cursor move(Board board, Cursor from, int stepsX, int stepsY) {
+            throw new RuntimeException("todo");
+        }
+    }
+    static class Cube {
+        final int size;
+
         final TileType[][] tiles;
+
+        final List<Side> sides;
+
+        Cube(TileType[][] tiles) {
+            this.tiles = tiles;
+
+            int calculatedSize = 0;
+            boolean found;
+            do {
+                calculatedSize++;
+                final int candidateSize = calculatedSize;
+
+                found = tiles[0].length % candidateSize == 0 &&
+                        tiles.length % candidateSize == 0 &&
+                        IntStream.range(0, tiles.length / candidateSize).flatMap(y ->
+                            IntStream.range(0, tiles[0].length / candidateSize).filter(x -> tiles[y * candidateSize][x * candidateSize] != EMPTY)
+                        ).count() == SideType.values().length;
+            } while(!found);
+
+            this.size = calculatedSize;
+
+            var hasSide = new boolean[tiles.length / size][];
+
+            for (int y = 0; y < hasSide.length; y++) {
+                hasSide[y] = new boolean[tiles[0].length / size];
+                for (int x = 0; x < hasSide[y].length; x++) {
+                    if (tiles[y * size][x * size] != EMPTY) {
+                        hasSide[y][x] = true;
+                    }
+                }
+            }
+
+            sides = connect(hasSide);
+        }
+    }
+
+    static List<Side> connect(boolean[][] sides) {
+        var result = new ArrayList<Side>();
+        while (result.size() != SideType.values().length) {
+            for (var y = 0; y < sides.length; y++) {
+                final int currentY = y;
+                for (var x = 0; x < sides[y].length; x++) {
+                    final int currentX = x;
+                    if (sides[y][x]) {
+                        if (result.isEmpty()) {
+                            result.add(new Side(x, y, null, ConnectionType.ROOT));
+                        } else if (result.stream().noneMatch(connection -> connection.x == currentX && connection.y == currentY)) {
+                            var above = result.stream().filter(connection -> connection.x == currentX && connection.y == currentY - 1).findFirst();
+                            var left = result.stream().filter(connection -> connection.x == currentX - 1 && connection.y == currentY ).findFirst();
+                            var right = result.stream().filter(connection -> connection.x == currentX + 1 && connection.y == currentY).findFirst();
+
+                            if (above.isPresent()) {
+                                result.add(new Side(currentX, currentY, above.get(), ConnectionType.ABOVE));
+                            } else if (left.isPresent()) {
+                                result.add(new Side(currentX, currentY, left.get(), ConnectionType.LEFT));
+                            } else if (right.isPresent()) {
+                                result.add(new Side(currentX, currentY, right.get(), ConnectionType.RIGHT));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+
+
+    static class Board {
+
+        final TileType[][] tiles;
+
+        final Cube cube;
+
         final int width;
         final int height;
 
         Board(TileType[][] tiles) {
             this.tiles = tiles;
+            this.cube = new Cube(tiles);
             this.height = tiles.length;
             this.width = tiles[0].length;
         }
@@ -382,7 +520,7 @@ public class Day22 implements Day {
 
             var begin = new Cursor(scenario.board().leftmostOpenTileOfTheTopRowOfTiles(), Orientation.RIGHT);
 
-            var end = scenario.playFrom(begin, new FirstMoveLogic(scenario.board));
+            var end = scenario.playFrom(begin, new SecondMoveLogic());
 
             return (end.position.y + 1) * 1000 + (end.position.x + 1) * 4 + end.orientation.score;
         };
