@@ -19,7 +19,11 @@ public class Day22 implements Day {
 
     private static final Logger LOG = Logger.getLogger(Day22.class.getName());
 
-    record Cursor(Position position, Orientation orientation) { }
+    record Cursor(Position position, Orientation orientation) {
+        Cursor with(Position withPosition) {
+            return new Cursor(withPosition, orientation);
+        }
+    }
 
     enum Orientation {
         TOP(0, -1, 1, 3, 3),
@@ -67,7 +71,7 @@ public class Day22 implements Day {
 
         @Override
         public Cursor apply(Board board, Cursor cursor, MoveLogic moveLogic) {
-            return new Cursor(moveLogic.move(board, cursor.position, cursor.orientation.moveX * numberOfSteps, cursor.orientation.moveY * numberOfSteps), cursor.orientation);
+            return moveLogic.move(board, cursor, cursor.orientation.moveX * numberOfSteps, cursor.orientation.moveY * numberOfSteps);
         }
 
         @Override
@@ -102,7 +106,7 @@ public class Day22 implements Day {
     }
 
     interface MoveLogic {
-        public Position move(Board board, Position from, int stepsX, int stepsY);
+        public Cursor move(Board board, Cursor from, int stepsX, int stepsY);
     }
 
     static class FirstMoveLogic implements MoveLogic{
@@ -156,7 +160,7 @@ public class Day22 implements Day {
             }
         }
 
-        public Position move(Board board, Position from, int stepsX, int stepsY) {
+        public Cursor move(Board board, Cursor from, int stepsX, int stepsY) {
             if (stepsX > 0 && stepsY == 0) {
                 return moveRight(board, from, stepsX);
             } else if (stepsX < 0 && stepsY == 0) {
@@ -170,17 +174,17 @@ public class Day22 implements Day {
             }
         }
 
-        private Position moveRight(Board board, Position from, int times) {
+        private Cursor moveRight(Board board, Cursor from, int times) {
             if (times == 0) {
                 return from;
             }
 
-            var candidate = new Position((from.x + 1) % board.width, from.y);
-            var tileAtCandidate = board.tiles[candidate.y][candidate.x];
+            var candidate = from.with(new Position((from.position.x + 1) % board.width, from.position.y));
+            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
 
             if (tileAtCandidate == EMPTY) {
-                candidate = new Position(minXforY.get(candidate.y), candidate.y);
-                tileAtCandidate = board.tiles[candidate.y][candidate.x];
+                candidate = from.with(new Position(minXforY.get(candidate.position.y), candidate.position.y));
+                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
             }
 
             return switch (tileAtCandidate) {
@@ -190,17 +194,17 @@ public class Day22 implements Day {
             };
         }
 
-        private Position moveLeft(Board board, Position from, int times) {
+        private Cursor moveLeft(Board board, Cursor from, int times) {
             if (times == 0) {
                 return from;
             }
 
-            var candidate = new Position((from.x - 1 + board.width) % board.width, from.y);
-            var tileAtCandidate = board.tiles[candidate.y][candidate.x];
+            var candidate = from.with(new Position((from.position.x - 1 + board.width) % board.width, from.position.y));
+            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
 
             if (tileAtCandidate == EMPTY) {
-                candidate = new Position(maxXforY.get(candidate.y), candidate.y);
-                tileAtCandidate = board.tiles[candidate.y][candidate.x];
+                candidate = from.with(new Position(maxXforY.get(candidate.position.y), candidate.position.y));
+                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
             }
 
             return switch (tileAtCandidate) {
@@ -210,17 +214,17 @@ public class Day22 implements Day {
             };
         }
 
-        private Position moveDown(Board board, Position from, int times) {
+        private Cursor moveDown(Board board, Cursor from, int times) {
             if (times == 0) {
                 return from;
             }
 
-            var candidate = new Position(from.x, (from.y + 1) % board.height);
-            var tileAtCandidate = board.tiles[candidate.y][candidate.x];
+            var candidate = from.with(new Position(from.position.x, (from.position.y + 1) % board.height));
+            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
 
             if (tileAtCandidate == EMPTY) {
-                candidate = new Position(candidate.x, minYforX.get(candidate.x));
-                tileAtCandidate = board.tiles[candidate.y][candidate.x];
+                candidate = from.with(new Position(candidate.position.x, minYforX.get(candidate.position.x)));
+                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
             }
 
             return switch (tileAtCandidate) {
@@ -230,17 +234,17 @@ public class Day22 implements Day {
             };
         }
 
-        private Position moveUp(Board board, Position from, int times) {
+        private Cursor moveUp(Board board, Cursor from, int times) {
             if (times == 0) {
                 return from;
             }
 
-            var candidate = new Position(from.x, (from.y - 1 + board.height) % board.height);
-            var tileAtCandidate = board.tiles[candidate.y][candidate.x];
+            var candidate = from.with(new Position(from.position.x, (from.position.y - 1 + board.height) % board.height));
+            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
 
             if (tileAtCandidate == EMPTY) {
-                candidate = new Position(candidate.x, maxYforX.get(candidate.x));
-                tileAtCandidate = board.tiles[candidate.y][candidate.x];
+                candidate = from.with(new Position(candidate.position.x, maxYforX.get(candidate.position.x)));
+                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
             }
 
             return switch (tileAtCandidate) {
@@ -373,6 +377,14 @@ public class Day22 implements Day {
 
     @Override
     public Assignment second() {
-        return (run, input) -> "";
+        return (run, input) -> {
+            var scenario = Scenario.parse(input);
+
+            var begin = new Cursor(scenario.board().leftmostOpenTileOfTheTopRowOfTiles(), Orientation.RIGHT);
+
+            var end = scenario.playFrom(begin, new FirstMoveLogic(scenario.board));
+
+            return (end.position.y + 1) * 1000 + (end.position.x + 1) * 4 + end.orientation.score;
+        };
     }
 }
