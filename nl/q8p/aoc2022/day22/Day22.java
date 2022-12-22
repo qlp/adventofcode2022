@@ -5,14 +5,18 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
+import static nl.q8p.aoc2022.day22.Day22.SideType.BOTTOM;
+import static nl.q8p.aoc2022.day22.Day22.SideType.DOWN;
+import static nl.q8p.aoc2022.day22.Day22.SideType.LEFT;
+import static nl.q8p.aoc2022.day22.Day22.SideType.RIGHT;
+import static nl.q8p.aoc2022.day22.Day22.SideType.TOP;
+import static nl.q8p.aoc2022.day22.Day22.SideType.UP;
 import static nl.q8p.aoc2022.day22.Day22.TileType.EMPTY;
 import static nl.q8p.aoc2022.day22.Day22.TileType.OPEN;
 import static nl.q8p.aoc2022.day22.Day22.TileType.WALL;
@@ -24,6 +28,11 @@ public class Day22 implements Day {
     record Cursor(Position position, Orientation orientation) {
         Cursor with(Position withPosition) {
             return new Cursor(withPosition, orientation);
+        }
+
+        @Override
+        public String toString() {
+            return "" + position.x + ", " + position.y + " " + orientation.name();
         }
     }
 
@@ -73,7 +82,7 @@ public class Day22 implements Day {
 
         @Override
         public Cursor apply(Board board, Cursor cursor, MoveLogic moveLogic) {
-            return moveLogic.move(board, cursor, cursor.orientation.moveX * numberOfSteps, cursor.orientation.moveY * numberOfSteps);
+            return moveLogic.move(board, cursor, numberOfSteps);
         }
 
         @Override
@@ -108,7 +117,7 @@ public class Day22 implements Day {
     }
 
     interface MoveLogic {
-        public Cursor move(Board board, Cursor from, int stepsX, int stepsY);
+        public Cursor move(Board board, Cursor from, int steps);
     }
 
     static class FirstMoveLogic implements MoveLogic{
@@ -162,18 +171,13 @@ public class Day22 implements Day {
             }
         }
 
-        public Cursor move(Board board, Cursor from, int stepsX, int stepsY) {
-            if (stepsX > 0 && stepsY == 0) {
-                return moveRight(board, from, stepsX);
-            } else if (stepsX < 0 && stepsY == 0) {
-                return moveLeft(board, from, -stepsX);
-            } else if (stepsX == 0 && stepsY > 0) {
-                return moveDown(board, from, stepsY);
-            } else if (stepsX == 0 && stepsY < 0) {
-                return moveUp(board, from, -stepsY);
-            } else {
-                throw new IllegalStateException("Cannot move " + stepsX + ", " + stepsY + " from " + from);
-            }
+        public Cursor move(Board board, Cursor from, int steps) {
+            return switch(from.orientation) {
+                case RIGHT -> moveRight(board, from, steps);
+                case LEFT -> moveLeft(board, from, steps);
+                case DOWN -> moveDown(board, from, steps);
+                case UP -> moveUp(board, from, steps);
+            };
         }
 
         private Cursor moveRight(Board board, Cursor from, int times) {
@@ -272,136 +276,138 @@ public class Day22 implements Day {
         ROOT, ABOVE, LEFT, RIGHT
     }
 
-    static class Side {
-        final Side connection;
+    record Side(SideType sideType, Destination up, Destination left, Destination down, Destination right) {
 
-        final ConnectionType connectionType;
+    }
 
-        final int x;
-        final int y;
-
-
-        SideCoordinate toSideCoordinate(int cubeSize, Position position) {
-            return new SideCoordinate(position.x - x * cubeSize, position.y - y * cubeSize);
-        }
-
-        Position toPosition(int cubeSize, SideCoordinate sideCoordinate) {
-            return new Position(cubeSize * x + sideCoordinate.x, cubeSize * y + sideCoordinate.y);
-        }
-
-        boolean contains(int boardSize, Position position) {
-            return
-                position.x >= x * boardSize &&
-                position.x < (x + 1) * boardSize &&
-                position.y >= y * boardSize &&
-                position.y < (y + 1) * boardSize;
-        }
-
-        Side(int x, int y, Side connection, ConnectionType connectionType) {
-            this.x = x;
-            this.y = y;
-            this.connection = connection;
-            this.connectionType = connectionType;
+    record LocalCoordinate(int x, int y) {
+        public LocalCoordinate transform(Transform transform, LocalCoordinate from, int tileSize) {
+            return switch (transform) {
+                case FLIP_X -> new LocalCoordinate(tileSize - 1 - from.x, from.y);
+                case FLIP_Y -> new LocalCoordinate(x, tileSize - 1 - from.y);
+                case X_TO_Y, Y_TO_X -> new LocalCoordinate(y, x);
+                case FLIP_Y_TO_FLIP_X, FLIP_X_TO_Y -> new LocalCoordinate(tileSize - 1- from.y, tileSize - 1- from.x);
+            };
         }
     }
 
-    enum CubeTileType {
-        WALL, OPEN
+    record TilePosition(int x, int y) { }
+
+    static class CubeLayout {
+        final Side[][] sides;
+
+        CubeLayout(Side[][] sides) {
+            this.sides = sides;
+        }
+
+        Cursor when(Board board, Cursor cursor) {
+            var from = find(board, cursor);
+
+            var to = switch (cursor.orientation) {
+                case UP -> from.up;
+                case LEFT -> from.left;
+                case DOWN -> from.down;
+                case RIGHT -> from.right;
+            };
+
+            return transform(board, cursor, to);
+        }
+
+        Cursor transform(Board board, Cursor cursor, Destination destination) {
+            var orientation = destination.orientation;
+
+            int tileSize = board.width / sides[0].length;
+            var local = new LocalCoordinate(cursor.position.x % tileSize, cursor.position.y % tileSize);
+
+            var localTransformed = local.transform(destination.transform, local, tileSize);
+
+            var tilePosition = tilePosition(destination.to);
+
+            var global = new Position(tilePosition.x * tileSize + localTransformed.x, tilePosition.y * tileSize + localTransformed.y);
+
+            return new Cursor(global, orientation);
+        }
+
+        Side find(Board board, Cursor cursor) {
+            return sides[cursor.position.y / (board.height / sides.length)][cursor.position.x / (board.width / sides[0].length)];
+        }
+
+        TilePosition tilePosition(SideType sideType) {
+            for (int y = 0; y < sides.length; y++) {
+                for (int x = 0; x < sides[y].length; x++) {
+                    if (sides[y][x] != null && sides[y][x].sideType == sideType) {
+                        return new TilePosition(x, y);
+                    }
+                }
+            }
+
+            throw new IllegalStateException("side not found: " + sideType);
+        }
     }
+
+//    enum Moving {
+//        LEFT(-1, 0),
+//        RIGHT(1, 0),
+//        TOP(0, 1),
+//        BOTTOM(0, -1);
+//
+//        final int x;
+//        final int y;
+//
+//        Moving(int x, int y) {
+//            this.x = x;
+//            this.y = y;
+//        }
+//    }
 
     static class SecondMoveLogic implements MoveLogic{
 
-        public Cursor move(Board board, Cursor from, int stepsX, int stepsY) {
-            throw new RuntimeException("todo");
+        private final CubeLayout cubeLayout;
+
+        SecondMoveLogic(CubeLayout cubeLayout) {
+            this.cubeLayout = cubeLayout;
         }
-    }
-    static class Cube {
-        final int size;
 
-        final TileType[][] tiles;
-
-        final List<Side> sides;
-
-        Cube(TileType[][] tiles) {
-            this.tiles = tiles;
-
-            int calculatedSize = 0;
-            boolean found;
-            do {
-                calculatedSize++;
-                final int candidateSize = calculatedSize;
-
-                found = tiles[0].length % candidateSize == 0 &&
-                        tiles.length % candidateSize == 0 &&
-                        IntStream.range(0, tiles.length / candidateSize).flatMap(y ->
-                            IntStream.range(0, tiles[0].length / candidateSize).filter(x -> tiles[y * candidateSize][x * candidateSize] != EMPTY)
-                        ).count() == SideType.values().length;
-            } while(!found);
-
-            this.size = calculatedSize;
-
-            var hasSide = new boolean[tiles.length / size][];
-
-            for (int y = 0; y < hasSide.length; y++) {
-                hasSide[y] = new boolean[tiles[0].length / size];
-                for (int x = 0; x < hasSide[y].length; x++) {
-                    if (tiles[y * size][x * size] != EMPTY) {
-                        hasSide[y][x] = true;
-                    }
-                }
+        public Cursor move(Board board, Cursor from, int steps) {
+            if (steps == 0) {
+                return from;
             }
 
-            sides = connect(hasSide);
-        }
-    }
+            var candidate = from.with(new Position(from.position.x + from.orientation.moveX, from.position.y + from.orientation.moveY));
 
-    static List<Side> connect(boolean[][] sides) {
-        var result = new ArrayList<Side>();
-        while (result.size() != SideType.values().length) {
-            for (var y = 0; y < sides.length; y++) {
-                final int currentY = y;
-                for (var x = 0; x < sides[y].length; x++) {
-                    final int currentX = x;
-                    if (sides[y][x]) {
-                        if (result.isEmpty()) {
-                            result.add(new Side(x, y, null, ConnectionType.ROOT));
-                        } else if (result.stream().noneMatch(connection -> connection.x == currentX && connection.y == currentY)) {
-                            var above = result.stream().filter(connection -> connection.x == currentX && connection.y == currentY - 1).findFirst();
-                            var left = result.stream().filter(connection -> connection.x == currentX - 1 && connection.y == currentY ).findFirst();
-                            var right = result.stream().filter(connection -> connection.x == currentX + 1 && connection.y == currentY).findFirst();
+            var tileAtCandidate = board.get(candidate.position);
 
-                            if (above.isPresent()) {
-                                result.add(new Side(currentX, currentY, above.get(), ConnectionType.ABOVE));
-                            } else if (left.isPresent()) {
-                                result.add(new Side(currentX, currentY, left.get(), ConnectionType.LEFT));
-                            } else if (right.isPresent()) {
-                                result.add(new Side(currentX, currentY, right.get(), ConnectionType.RIGHT));
-                            }
-                        }
-                    }
-                }
+            if (tileAtCandidate == EMPTY) {
+                candidate = cubeLayout.when(board, from);
+                tileAtCandidate = board.get(candidate.position);
             }
+
+            return switch (tileAtCandidate) {
+                case OPEN -> move(board, candidate, steps - 1);
+                case WALL -> from;
+                case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + candidate);
+            };
         }
-
-        return result;
     }
-
-
 
     static class Board {
 
         final TileType[][] tiles;
-
-        final Cube cube;
 
         final int width;
         final int height;
 
         Board(TileType[][] tiles) {
             this.tiles = tiles;
-            this.cube = new Cube(tiles);
             this.height = tiles.length;
             this.width = tiles[0].length;
+        }
+
+        public TileType get(Position position) {
+            if ((position.x < 0) || (position.x >= width) || (position.y < 0) || (position.y >= height)) {
+                return EMPTY;
+            }
+            return tiles[position.y][position.x];
         }
 
         public Position leftmostOpenTileOfTheTopRowOfTiles() {
@@ -520,9 +526,86 @@ public class Day22 implements Day {
 
             var begin = new Cursor(scenario.board().leftmostOpenTileOfTheTopRowOfTiles(), Orientation.RIGHT);
 
-            var end = scenario.playFrom(begin, new SecondMoveLogic());
+            var end = scenario.playFrom(begin, new SecondMoveLogic(cubeLayout(run)));
 
             return (end.position.y + 1) * 1000 + (end.position.x + 1) * 4 + end.orientation.score;
         };
+    }
+
+    enum Transform {
+        Y_TO_X, FLIP_Y, X_TO_Y, FLIP_X_TO_Y, FLIP_Y_TO_FLIP_X, FLIP_X
+
+    }
+
+    record Destination(SideType to, Orientation orientation, Transform transform) { }
+
+    public CubeLayout cubeLayout(Assignment.Run run) {
+        return switch (run) {
+            case EXAMPLE -> exampleLayout();
+            case REAL -> realLayout();
+        };
+    }
+
+    public CubeLayout exampleLayout() {
+        // 1
+        var top = new Side(TOP,
+                new Destination(UP, Orientation.DOWN, Transform.FLIP_X),
+                new Destination(LEFT, Orientation.DOWN, Transform.Y_TO_X),
+                new Destination(DOWN, Orientation.DOWN, Transform.FLIP_Y),
+                new Destination(RIGHT, Orientation.LEFT, Transform.FLIP_Y));
+        // 6
+        var up = new Side(UP,
+                new Destination(TOP, Orientation.DOWN, Transform.FLIP_X),
+                new Destination(RIGHT, Orientation.UP, Transform.FLIP_Y_TO_FLIP_X),
+                new Destination(BOTTOM, Orientation.UP, Transform.FLIP_X),
+                new Destination(LEFT, Orientation.RIGHT, Transform.FLIP_X));
+        // 5
+        var left = new Side(LEFT,
+                new Destination(TOP, Orientation.RIGHT, Transform.X_TO_Y),
+                new Destination(UP, Orientation.LEFT, Transform.FLIP_X),
+                new Destination(BOTTOM, Orientation.RIGHT, Transform.FLIP_X_TO_Y),
+                new Destination(DOWN, Orientation.RIGHT, Transform.FLIP_X));
+        // 2
+        var down = new Side(DOWN,
+                new Destination(TOP, Orientation.UP, Transform.FLIP_Y),
+                new Destination(LEFT, Orientation.LEFT, Transform.FLIP_X),
+                new Destination(BOTTOM, Orientation.DOWN, Transform.FLIP_Y),
+                new Destination(RIGHT, Orientation.DOWN, Transform.FLIP_Y_TO_FLIP_X));
+        // 3
+        var bottom = new Side(BOTTOM,
+                new Destination(DOWN, Orientation.UP, Transform.FLIP_Y),
+                new Destination(LEFT, Orientation.UP, Transform.FLIP_Y_TO_FLIP_X),
+                new Destination(UP, Orientation.UP, Transform.FLIP_X),
+                new Destination(RIGHT, Orientation.RIGHT, Transform.FLIP_X));
+        // 4
+        var right = new Side(RIGHT,
+                new Destination(DOWN, Orientation.LEFT, Transform.FLIP_X_TO_Y),
+                new Destination(BOTTOM, Orientation.LEFT, Transform.FLIP_X),
+                new Destination(UP, Orientation.RIGHT, Transform.FLIP_X_TO_Y),
+                new Destination(TOP, Orientation.LEFT, Transform.FLIP_Y));
+
+        return new CubeLayout(new Side[][] {
+                new Side[] { null, null, top, null },
+                new Side[] { up, left, down, null },
+                new Side[] { null, null, bottom, right }
+        });
+
+    }
+
+    public CubeLayout realLayout() {
+//        var top = new Side(SideType.TOP);
+//        var up = new Side(SideType.UP);
+//        var left = new Side(SideType.LEFT);
+//        var down = new Side(SideType.DOWN);
+//        var bottom = new Side(SideType.BOTTOM);
+//        var right = new Side(SideType.RIGHT);
+//
+//        return new CubeLayout(new Side[][] {
+//                new Side[] { null, null, top, null },
+//                new Side[] { up, left, down, null },
+//                new Side[] { null, null, bottom, right }
+//        });
+
+        return null;
     }
 }
