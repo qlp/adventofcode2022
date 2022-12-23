@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 import static nl.q8p.aoc2022.day22.Day22.SideType.BOTTOM;
@@ -23,16 +22,9 @@ import static nl.q8p.aoc2022.day22.Day22.TileType.WALL;
 
 public class Day22 implements Day {
 
-    private static final Logger LOG = Logger.getLogger(Day22.class.getName());
-
     record Cursor(Position position, Orientation orientation) {
         Cursor with(Position withPosition) {
             return new Cursor(withPosition, orientation);
-        }
-
-        @Override
-        public String toString() {
-            return "" + position.x + ", " + position.y + " " + orientation.name();
         }
     }
 
@@ -84,11 +76,6 @@ public class Day22 implements Day {
         public Cursor apply(Board board, Cursor cursor, MoveLogic moveLogic) {
             return moveLogic.move(board, cursor, numberOfSteps);
         }
-
-        @Override
-        public String toString() {
-            return "" + numberOfSteps;
-        }
     }
 
     record Turn(Direction direction) implements Operation {
@@ -101,14 +88,6 @@ public class Day22 implements Day {
             };
 
             return new Cursor(cursor.position, newOrientation);
-        }
-
-        @Override
-        public String toString() {
-            return switch (direction) {
-                case RIGHT -> "R";
-                case LEFT -> "L";
-            };
         }
     }
 
@@ -276,12 +255,7 @@ public class Day22 implements Day {
         ROOT, ABOVE, LEFT, RIGHT
     }
 
-    record Side(SideType sideType, Destination up, Destination left, Destination down, Destination right) {
-        @Override
-        public String toString() {
-            return sideType.name();
-        }
-    }
+    record Side(SideType sideType, Destination up, Destination left, Destination down, Destination right) { }
 
     record LocalCoordinate(int x, int y) {
         public LocalCoordinate transform(Transform transform, LocalCoordinate from, int tileSize) {
@@ -366,8 +340,6 @@ public class Day22 implements Day {
                 return from;
             }
 
-            LOG.info("move: from: " + from + " tile: " + cubeLayout.find(board, from) + " " + cubeLayout.localCoordinate(board, from));
-
             var candidate = from.with(new Position(from.position.x + from.orientation.moveX, from.position.y + from.orientation.moveY));
 
             var tileAtCandidate = board.get(candidate.position);
@@ -407,15 +379,6 @@ public class Day22 implements Day {
 
         public Position leftmostOpenTileOfTheTopRowOfTiles() {
             return new Position(IntStream.range(0, width).filter(x -> tiles[0][x] == OPEN).findFirst().orElseThrow(), 0);
-        }
-
-        @Override
-        public String toString() {
-            return String.join("\n", Arrays.stream(tiles).map(line -> String.join("", Arrays.stream(line).map(t -> switch (t) {
-                case EMPTY -> " ";
-                case WALL -> "#";
-                case OPEN -> ".";
-            }).toList())).toList());
         }
 
         static Board parse(String string) {
@@ -475,11 +438,6 @@ public class Day22 implements Day {
             result.add(new Move(Integer.parseInt(buffer.toString())));
 
             return new Operations(result);
-        }
-
-        @Override
-        public String toString() {
-            return String.join("", list.stream().map(Object::toString).toList());
         }
     }
 
