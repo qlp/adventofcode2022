@@ -26,6 +26,10 @@ public class Day22 implements Day {
         Cursor with(Position withPosition) {
             return new Cursor(withPosition, orientation);
         }
+
+        Cursor next() {
+            return new Cursor(new Position(position.x + orientation.moveX, position.y + orientation.moveY), orientation);
+        }
     }
 
     enum Orientation {
@@ -67,21 +71,21 @@ public class Day22 implements Day {
     }
 
     sealed interface Operation permits Move, Turn {
-        Cursor apply(Board board, Cursor cursor, MoveLogic moveLogic);
+        Cursor apply(Cursor cursor, MoveLogic moveLogic);
     }
 
     record Move(int numberOfSteps) implements Operation {
 
         @Override
-        public Cursor apply(Board board, Cursor cursor, MoveLogic moveLogic) {
-            return moveLogic.move(board, cursor, numberOfSteps);
+        public Cursor apply(Cursor cursor, MoveLogic moveLogic) {
+            return moveLogic.move(cursor, numberOfSteps);
         }
     }
 
     record Turn(Direction direction) implements Operation {
 
         @Override
-        public Cursor apply(Board board, Cursor cursor, MoveLogic moveLogic) {
+        public Cursor apply(Cursor cursor, MoveLogic moveLogic) {
             var newOrientation = switch (direction) {
                 case LEFT -> cursor.orientation.turnLeft();
                 case RIGHT -> cursor.orientation.turnRight();
@@ -96,163 +100,85 @@ public class Day22 implements Day {
     }
 
     interface MoveLogic {
-        public Cursor move(Board board, Cursor from, int steps);
+
+        void init(Board board);
+
+        Cursor move(Cursor from, int steps);
     }
 
-    static class FirstMoveLogic implements MoveLogic{
-        final Map<Integer, Integer> minYforX;
-        final Map<Integer, Integer> maxYforX;
+    record Range(int min, int max) {
+        Range extend(int value) {
+            return new Range(Math.min(min, value), Math.max(max, value));
+        }
+    }
 
-        final Map<Integer, Integer> minXforY;
-        final Map<Integer, Integer> maxXforY;
+    static class FirstMoveLogic implements MoveLogic {
+        final Map<Integer, Range> rangeForX = new HashMap<>();
+        final Map<Integer, Range> rangeForY = new HashMap<>();
 
-        FirstMoveLogic(Board board) {
-            minYforX = new HashMap<>();
-            maxYforX = new HashMap<>();
+        Board board;
 
-            for (int x = 0; x < board.width; x++) {
-                var minY = board.height - 1;
-                var maxyY = 0;
-
-                for (int y = 0; y < board.height; y++) {
-                    if (board.tiles[y][x] != EMPTY) {
-                        if (y < minY) {
-                            minY = y;
-                        }
-                        if (y > maxyY) {
-                            maxyY = y;
-                        }
-                    }
-                }
-                minYforX.put(x, minY);
-                maxYforX.put(x, maxyY);
+        public Cursor move(Cursor from, int times) {
+            if (times == 0) {
+                return from;
             }
 
-            minXforY = new HashMap<>();
-            maxXforY = new HashMap<>();
+            var to = step(from);
 
-            for (int y = 0; y < board.height; y++) {
-                var minX = board.width - 1;
-                var maxX = 0;
+            return switch (board.get(to.position)) {
+                case OPEN -> move(to, times - 1);
+                case WALL -> from;
+                case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + to);
+            };
+        }
+
+        private Cursor step(Cursor from) {
+            var next = from.next();
+
+            if (board.get(next.position) == EMPTY) {
+                next = switch (from.orientation) {
+                    case LEFT -> from.with(new Position(rangeForY.get(next.position.y).max, next.position.y));
+                    case RIGHT -> from.with(new Position(rangeForY.get(next.position.y).min, next.position.y));
+                    case UP -> from.with(new Position(next.position.x, rangeForX.get(next.position.x).max));
+                    case DOWN -> from.with(new Position(next.position.x, rangeForX.get(next.position.x).min));
+                };
+            }
+
+            return next;
+        }
+
+        public void init(Board board) {
+            this.board = board;
+
+            if (rangeForX.isEmpty() && rangeForY.isEmpty()) {
 
                 for (int x = 0; x < board.width; x++) {
-                    if (board.tiles[y][x] != EMPTY) {
-                        if (x < minX) {
-                            minX = x;
-                        }
-                        if (x > maxX) {
-                            maxX = x;
+                    var range = new Range(board.height - 1, 0);
+
+                    for (int y = 0; y < board.height; y++) {
+                        if (board.tiles[y][x] != EMPTY) {
+                            range = range.extend(y);
                         }
                     }
+                    rangeForX.put(x, range);
                 }
-                minXforY.put(y, minX);
-                maxXforY.put(y, maxX);
+
+                for (int y = 0; y < board.height; y++) {
+                    var range = new Range(board.width - 1, 0);
+
+                    for (int x = 0; x < board.width; x++) {
+                        if (board.tiles[y][x] != EMPTY) {
+                            range = range.extend(x);
+                        }
+                    }
+                    rangeForY.put(y, range);
+                }
             }
-        }
-
-        public Cursor move(Board board, Cursor from, int steps) {
-            return switch(from.orientation) {
-                case RIGHT -> moveRight(board, from, steps);
-                case LEFT -> moveLeft(board, from, steps);
-                case DOWN -> moveDown(board, from, steps);
-                case UP -> moveUp(board, from, steps);
-            };
-        }
-
-        private Cursor moveRight(Board board, Cursor from, int times) {
-            if (times == 0) {
-                return from;
-            }
-
-            var candidate = from.with(new Position((from.position.x + 1) % board.width, from.position.y));
-            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-
-            if (tileAtCandidate == EMPTY) {
-                candidate = from.with(new Position(minXforY.get(candidate.position.y), candidate.position.y));
-                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-            }
-
-            return switch (tileAtCandidate) {
-                case OPEN -> moveRight(board, candidate, times - 1);
-                case WALL -> from;
-                case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + candidate);
-            };
-        }
-
-        private Cursor moveLeft(Board board, Cursor from, int times) {
-            if (times == 0) {
-                return from;
-            }
-
-            var candidate = from.with(new Position((from.position.x - 1 + board.width) % board.width, from.position.y));
-            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-
-            if (tileAtCandidate == EMPTY) {
-                candidate = from.with(new Position(maxXforY.get(candidate.position.y), candidate.position.y));
-                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-            }
-
-            return switch (tileAtCandidate) {
-                case OPEN -> moveLeft(board, candidate, times - 1);
-                case WALL -> from;
-                case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + candidate);
-            };
-        }
-
-        private Cursor moveDown(Board board, Cursor from, int times) {
-            if (times == 0) {
-                return from;
-            }
-
-            var candidate = from.with(new Position(from.position.x, (from.position.y + 1) % board.height));
-            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-
-            if (tileAtCandidate == EMPTY) {
-                candidate = from.with(new Position(candidate.position.x, minYforX.get(candidate.position.x)));
-                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-            }
-
-            return switch (tileAtCandidate) {
-                case OPEN -> moveDown(board, candidate, times - 1);
-                case WALL -> from;
-                case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + candidate);
-            };
-        }
-
-        private Cursor moveUp(Board board, Cursor from, int times) {
-            if (times == 0) {
-                return from;
-            }
-
-            var candidate = from.with(new Position(from.position.x, (from.position.y - 1 + board.height) % board.height));
-            var tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-
-            if (tileAtCandidate == EMPTY) {
-                candidate = from.with(new Position(candidate.position.x, maxYforX.get(candidate.position.x)));
-                tileAtCandidate = board.tiles[candidate.position.y][candidate.position.x];
-            }
-
-            return switch (tileAtCandidate) {
-                case OPEN -> moveUp(board, candidate, times - 1);
-                case WALL -> from;
-                case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + candidate);
-            };
         }
     }
-
-    record SideCoordinate(int x, int y) { }
 
     enum SideType {
-        TOP,
-        BOTTOM,
-        LEFT,
-        RIGHT,
-        UP,
-        DOWN;
-    }
-
-    enum ConnectionType {
-        ROOT, ABOVE, LEFT, RIGHT
+        TOP, BOTTOM, LEFT, RIGHT, UP, DOWN
     }
 
     record Side(SideType sideType, Destination up, Destination left, Destination down, Destination right) { }
@@ -262,8 +188,8 @@ public class Day22 implements Day {
             return switch (transform) {
                 case FLIP_X -> new LocalCoordinate(tileSize - 1 - from.x, from.y);
                 case FLIP_Y -> new LocalCoordinate(x, tileSize - 1 - from.y);
-                case X_TO_Y, Y_TO_X -> new LocalCoordinate(y, x);
-                case FLIP_Y_TO_FLIP_X, FLIP_X_TO_Y -> new LocalCoordinate(tileSize - 1 - from.y, tileSize - 1 - from.x);
+                case X_TO_Y -> new LocalCoordinate(y, x);
+                case FLIP_Y_TO_FLIP_X -> new LocalCoordinate(tileSize - 1 - from.y, tileSize - 1 - from.x);
             };
         }
     }
@@ -309,11 +235,6 @@ public class Day22 implements Day {
             return sides[cursor.position.y / (board.height / sides.length)][cursor.position.x / (board.width / sides[0].length)];
         }
 
-        LocalCoordinate localCoordinate(Board board, Cursor cursor) {
-            int tileSize = board.width / sides[0].length;
-            return new LocalCoordinate(cursor.position.x % tileSize, cursor.position.y % tileSize);
-        }
-
         TilePosition tilePosition(SideType sideType) {
             for (int y = 0; y < sides.length; y++) {
                 for (int x = 0; x < sides[y].length; x++) {
@@ -331,16 +252,24 @@ public class Day22 implements Day {
 
         private final CubeLayout cubeLayout;
 
+        private Board board;
+
         SecondMoveLogic(CubeLayout cubeLayout) {
             this.cubeLayout = cubeLayout;
         }
 
-        public Cursor move(Board board, Cursor from, int steps) {
+        @Override
+        public void init(Board board) {
+            this.board = board;
+        }
+
+        @Override
+        public Cursor move(Cursor from, int steps) {
             if (steps == 0) {
                 return from;
             }
 
-            var candidate = from.with(new Position(from.position.x + from.orientation.moveX, from.position.y + from.orientation.moveY));
+            var candidate = from.next();
 
             var tileAtCandidate = board.get(candidate.position);
 
@@ -350,7 +279,7 @@ public class Day22 implements Day {
             }
 
             return switch (tileAtCandidate) {
-                case OPEN -> move(board, candidate, steps - 1);
+                case OPEN -> move(candidate, steps - 1);
                 case WALL -> from;
                 case EMPTY -> throw new IllegalStateException("Did not expect EMPTY at " + candidate);
             };
@@ -450,43 +379,30 @@ public class Day22 implements Day {
             );
         }
 
-        public Cursor playFrom(Cursor begin, MoveLogic moveLogic) {
-            var result = begin;
+        public int playWith(MoveLogic moveLogic) {
+            var result = new Cursor(board.leftmostOpenTileOfTheTopRowOfTiles(), Orientation.RIGHT);
+
+            moveLogic.init(board);
             for(var operation : operations.list) {
-                result = operation.apply(board, result, moveLogic);
+                result = operation.apply(result, moveLogic);
             }
-            return result;
+
+            return (result.position.y + 1) * 1000 + (result.position.x + 1) * 4 + result.orientation.score;
         }
     }
 
     @Override
     public Assignment first() {
-        return (run, input) -> {
-            var scenario = Scenario.parse(input);
-
-            var begin = new Cursor(scenario.board().leftmostOpenTileOfTheTopRowOfTiles(), Orientation.RIGHT);
-
-            var end = scenario.playFrom(begin, new FirstMoveLogic(scenario.board));
-
-            return (end.position.y + 1) * 1000 + (end.position.x + 1) * 4 + end.orientation.score;
-        };
+        return (run, input) -> Scenario.parse(input).playWith(new FirstMoveLogic());
     }
 
     @Override
     public Assignment second() {
-        return (run, input) -> {
-            var scenario = Scenario.parse(input);
-
-            var begin = new Cursor(scenario.board().leftmostOpenTileOfTheTopRowOfTiles(), Orientation.RIGHT);
-
-            var end = scenario.playFrom(begin, new SecondMoveLogic(cubeLayout(run)));
-
-            return (end.position.y + 1) * 1000 + (end.position.x + 1) * 4 + end.orientation.score;
-        };
+        return (run, input) -> Scenario.parse(input).playWith(new SecondMoveLogic(cubeLayout(run)));
     }
 
     enum Transform {
-        Y_TO_X, FLIP_Y, X_TO_Y, FLIP_X_TO_Y, FLIP_Y_TO_FLIP_X, FLIP_X
+        FLIP_Y, X_TO_Y, FLIP_Y_TO_FLIP_X, FLIP_X
 
     }
 
@@ -503,7 +419,7 @@ public class Day22 implements Day {
         // 1
         var top = new Side(TOP,
                 new Destination(UP, Orientation.DOWN, Transform.FLIP_X),
-                new Destination(LEFT, Orientation.DOWN, Transform.Y_TO_X),
+                new Destination(LEFT, Orientation.DOWN, Transform.X_TO_Y),
                 new Destination(DOWN, Orientation.DOWN, Transform.FLIP_Y),
                 new Destination(RIGHT, Orientation.LEFT, Transform.FLIP_Y));
         // 6
@@ -516,7 +432,7 @@ public class Day22 implements Day {
         var left = new Side(LEFT,
                 new Destination(TOP, Orientation.RIGHT, Transform.X_TO_Y),
                 new Destination(UP, Orientation.LEFT, Transform.FLIP_X),
-                new Destination(BOTTOM, Orientation.RIGHT, Transform.FLIP_X_TO_Y),
+                new Destination(BOTTOM, Orientation.RIGHT, Transform.FLIP_Y_TO_FLIP_X),
                 new Destination(DOWN, Orientation.RIGHT, Transform.FLIP_X));
         // 2
         var down = new Side(DOWN,
@@ -532,9 +448,9 @@ public class Day22 implements Day {
                 new Destination(RIGHT, Orientation.RIGHT, Transform.FLIP_X));
         // 4
         var right = new Side(RIGHT,
-                new Destination(DOWN, Orientation.LEFT, Transform.FLIP_X_TO_Y),
+                new Destination(DOWN, Orientation.LEFT, Transform.FLIP_Y_TO_FLIP_X),
                 new Destination(BOTTOM, Orientation.LEFT, Transform.FLIP_X),
-                new Destination(UP, Orientation.RIGHT, Transform.FLIP_X_TO_Y),
+                new Destination(UP, Orientation.RIGHT, Transform.FLIP_Y_TO_FLIP_X),
                 new Destination(TOP, Orientation.LEFT, Transform.FLIP_Y));
 
         return new CubeLayout(new Side[][] {
@@ -557,7 +473,7 @@ public class Day22 implements Day {
                 new Destination(LEFT, Orientation.UP, Transform.FLIP_Y),
                 new Destination(TOP, Orientation.DOWN, Transform.X_TO_Y),
                 new Destination(RIGHT, Orientation.DOWN, Transform.FLIP_Y),
-                new Destination(BOTTOM, Orientation.UP, Transform.Y_TO_X));
+                new Destination(BOTTOM, Orientation.UP, Transform.X_TO_Y));
         // 5
         var left = new Side(LEFT,
                 new Destination(DOWN, Orientation.RIGHT, Transform.X_TO_Y),
@@ -567,9 +483,9 @@ public class Day22 implements Day {
         // 3
         var down = new Side(DOWN,
                 new Destination(TOP, Orientation.UP, Transform.FLIP_Y),
-                new Destination(LEFT, Orientation.DOWN, Transform.Y_TO_X),
+                new Destination(LEFT, Orientation.DOWN, Transform.X_TO_Y),
                 new Destination(BOTTOM, Orientation.DOWN, Transform.FLIP_Y),
-                new Destination(RIGHT, Orientation.UP, Transform.Y_TO_X));
+                new Destination(RIGHT, Orientation.UP, Transform.X_TO_Y));
         // 4
         var bottom = new Side(BOTTOM,
                 new Destination(DOWN, Orientation.UP, Transform.FLIP_Y),
