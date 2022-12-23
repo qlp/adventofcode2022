@@ -5,9 +5,7 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.IntStream;
 
 import static nl.q8p.aoc2022.day22.Day22.SideType.BOTTOM;
@@ -113,8 +111,8 @@ public class Day22 implements Day {
     }
 
     static class FirstMoveLogic implements MoveLogic {
-        final Map<Integer, Range> rangeForX = new HashMap<>();
-        final Map<Integer, Range> rangeForY = new HashMap<>();
+        Range[] yRangeForX;
+        Range[] xRangeForY;
 
         Board board;
 
@@ -137,10 +135,10 @@ public class Day22 implements Day {
 
             if (board.get(next.position) == EMPTY) {
                 next = switch (from.orientation) {
-                    case LEFT -> from.with(new Position(rangeForY.get(next.position.y).max, next.position.y));
-                    case RIGHT -> from.with(new Position(rangeForY.get(next.position.y).min, next.position.y));
-                    case UP -> from.with(new Position(next.position.x, rangeForX.get(next.position.x).max));
-                    case DOWN -> from.with(new Position(next.position.x, rangeForX.get(next.position.x).min));
+                    case LEFT -> from.with(new Position(xRangeForY[next.position.y].max, next.position.y));
+                    case RIGHT -> from.with(new Position(xRangeForY[next.position.y].min, next.position.y));
+                    case UP -> from.with(new Position(next.position.x, yRangeForX[next.position.x].max));
+                    case DOWN -> from.with(new Position(next.position.x, yRangeForX[next.position.x].min));
                 };
             }
 
@@ -149,29 +147,15 @@ public class Day22 implements Day {
 
         public void init(Board board) {
             this.board = board;
+            this.xRangeForY = IntStream.range(0, board.height).mapToObj(y -> new Range(board.width - 1, 0)).toArray(Range[]::new);
+            this.yRangeForX = IntStream.range(0, board.width).mapToObj(y -> new Range(board.height - 1, 0)).toArray(Range[]::new);
 
-            if (rangeForX.isEmpty() && rangeForY.isEmpty()) {
-
-                for (int x = 0; x < board.width; x++) {
-                    var range = new Range(board.height - 1, 0);
-
-                    for (int y = 0; y < board.height; y++) {
-                        if (board.tiles[y][x] != EMPTY) {
-                            range = range.extend(y);
-                        }
-                    }
-                    rangeForX.put(x, range);
-                }
-
+            for (int x = 0; x < board.width; x++) {
                 for (int y = 0; y < board.height; y++) {
-                    var range = new Range(board.width - 1, 0);
-
-                    for (int x = 0; x < board.width; x++) {
-                        if (board.tiles[y][x] != EMPTY) {
-                            range = range.extend(x);
-                        }
+                    if (board.tiles[y][x] != EMPTY) {
+                        xRangeForY[y] = xRangeForY[y].extend(x);
+                        yRangeForX[x] = yRangeForX[x].extend(y);
                     }
-                    rangeForY.put(y, range);
                 }
             }
         }
@@ -402,7 +386,7 @@ public class Day22 implements Day {
     }
 
     enum Transform {
-        FLIP_Y, X_TO_Y, FLIP_Y_TO_FLIP_X, FLIP_X
+        FLIP_X, FLIP_Y, X_TO_Y, FLIP_Y_TO_FLIP_X
 
     }
 
