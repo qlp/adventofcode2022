@@ -277,7 +277,10 @@ public class Day22 implements Day {
     }
 
     record Side(SideType sideType, Destination up, Destination left, Destination down, Destination right) {
-
+        @Override
+        public String toString() {
+            return sideType.name();
+        }
     }
 
     record LocalCoordinate(int x, int y) {
@@ -332,6 +335,11 @@ public class Day22 implements Day {
             return sides[cursor.position.y / (board.height / sides.length)][cursor.position.x / (board.width / sides[0].length)];
         }
 
+        LocalCoordinate localCoordinate(Board board, Cursor cursor) {
+            int tileSize = board.width / sides[0].length;
+            return new LocalCoordinate(cursor.position.x % tileSize, cursor.position.y % tileSize);
+        }
+
         TilePosition tilePosition(SideType sideType) {
             for (int y = 0; y < sides.length; y++) {
                 for (int x = 0; x < sides[y].length; x++) {
@@ -345,21 +353,6 @@ public class Day22 implements Day {
         }
     }
 
-//    enum Moving {
-//        LEFT(-1, 0),
-//        RIGHT(1, 0),
-//        TOP(0, 1),
-//        BOTTOM(0, -1);
-//
-//        final int x;
-//        final int y;
-//
-//        Moving(int x, int y) {
-//            this.x = x;
-//            this.y = y;
-//        }
-//    }
-
     static class SecondMoveLogic implements MoveLogic{
 
         private final CubeLayout cubeLayout;
@@ -372,6 +365,8 @@ public class Day22 implements Day {
             if (steps == 0) {
                 return from;
             }
+
+            LOG.info("move: from: " + from + " tile: " + cubeLayout.find(board, from) + " " + cubeLayout.localCoordinate(board, from));
 
             var candidate = from.with(new Position(from.position.x + from.orientation.moveX, from.position.y + from.orientation.moveY));
 
@@ -602,7 +597,7 @@ public class Day22 implements Day {
         // 6
         var up = new Side(UP,
                 new Destination(LEFT, Orientation.UP, Transform.FLIP_Y),
-                new Destination(TOP, Orientation.DOWN, Transform.FLIP_X_TO_Y),
+                new Destination(TOP, Orientation.DOWN, Transform.X_TO_Y),
                 new Destination(RIGHT, Orientation.DOWN, Transform.FLIP_Y),
                 new Destination(BOTTOM, Orientation.UP, Transform.Y_TO_X));
         // 5
