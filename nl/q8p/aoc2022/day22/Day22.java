@@ -286,7 +286,7 @@ public class Day22 implements Day {
                 case FLIP_X -> new LocalCoordinate(tileSize - 1 - from.x, from.y);
                 case FLIP_Y -> new LocalCoordinate(x, tileSize - 1 - from.y);
                 case X_TO_Y, Y_TO_X -> new LocalCoordinate(y, x);
-                case FLIP_Y_TO_FLIP_X, FLIP_X_TO_Y -> new LocalCoordinate(tileSize - 1- from.y, tileSize - 1- from.x);
+                case FLIP_Y_TO_FLIP_X, FLIP_X_TO_Y -> new LocalCoordinate(tileSize - 1 - from.y, tileSize - 1 - from.x);
             };
         }
     }
@@ -593,19 +593,48 @@ public class Day22 implements Day {
     }
 
     public CubeLayout realLayout() {
-//        var top = new Side(SideType.TOP);
-//        var up = new Side(SideType.UP);
-//        var left = new Side(SideType.LEFT);
-//        var down = new Side(SideType.DOWN);
-//        var bottom = new Side(SideType.BOTTOM);
-//        var right = new Side(SideType.RIGHT);
-//
-//        return new CubeLayout(new Side[][] {
-//                new Side[] { null, null, top, null },
-//                new Side[] { up, left, down, null },
-//                new Side[] { null, null, bottom, right }
-//        });
+        // 1
+        var top = new Side(TOP,
+                new Destination(UP, Orientation.RIGHT, Transform.X_TO_Y),
+                new Destination(LEFT, Orientation.RIGHT, Transform.FLIP_Y),
+                new Destination(DOWN, Orientation.DOWN, Transform.FLIP_Y),
+                new Destination(RIGHT, Orientation.RIGHT, Transform.FLIP_X));
+        // 6
+        var up = new Side(UP,
+                new Destination(LEFT, Orientation.UP, Transform.FLIP_Y),
+                new Destination(TOP, Orientation.DOWN, Transform.FLIP_X_TO_Y),
+                new Destination(RIGHT, Orientation.DOWN, Transform.FLIP_Y),
+                new Destination(BOTTOM, Orientation.UP, Transform.Y_TO_X));
+        // 5
+        var left = new Side(LEFT,
+                new Destination(DOWN, Orientation.RIGHT, Transform.X_TO_Y),
+                new Destination(TOP, Orientation.RIGHT, Transform.FLIP_Y),
+                new Destination(UP, Orientation.DOWN, Transform.FLIP_Y),
+                new Destination(BOTTOM, Orientation.RIGHT, Transform.FLIP_X));
+        // 3
+        var down = new Side(DOWN,
+                new Destination(TOP, Orientation.UP, Transform.FLIP_Y),
+                new Destination(LEFT, Orientation.DOWN, Transform.Y_TO_X),
+                new Destination(BOTTOM, Orientation.DOWN, Transform.FLIP_Y),
+                new Destination(RIGHT, Orientation.UP, Transform.Y_TO_X));
+        // 4
+        var bottom = new Side(BOTTOM,
+                new Destination(DOWN, Orientation.UP, Transform.FLIP_Y),
+                new Destination(LEFT, Orientation.LEFT, Transform.FLIP_X),
+                new Destination(UP, Orientation.LEFT, Transform.X_TO_Y),
+                new Destination(RIGHT, Orientation.LEFT, Transform.FLIP_Y));
+        // 2
+        var right = new Side(RIGHT,
+                new Destination(UP, Orientation.UP, Transform.FLIP_Y),
+                new Destination(TOP, Orientation.LEFT, Transform.FLIP_X),
+                new Destination(DOWN, Orientation.LEFT, Transform.X_TO_Y),
+                new Destination(BOTTOM, Orientation.LEFT, Transform.FLIP_Y));
 
-        return null;
+        return new CubeLayout(new Side[][] {
+                new Side[] { null, top, right },
+                new Side[] { null, down, null },
+                new Side[] { left, bottom, null },
+                new Side[] { up, null, null }
+        });
     }
 }
