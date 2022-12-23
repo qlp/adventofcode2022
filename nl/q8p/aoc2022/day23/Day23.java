@@ -16,9 +16,6 @@ import java.util.stream.IntStream;
 
 public class Day23 implements Day {
 
-    private static final Logger LOG = Logger.getLogger(Day23.class.getName());
-
-
     enum Direction {
         UP(Move.N, Move.NE, Move.NW),
         DOWN(Move.S, Move.SE, Move.SW),
@@ -183,12 +180,27 @@ public class Day23 implements Day {
             return new World(elves, Direction.UP);
         }
 
+        public long firstRoundWithoutMove() {
+            int round = 1;
+
+            var previousWorld = this;
+            while(true) {
+                var newWorld = previousWorld.tick();
+
+                if (newWorld.elves.equals(previousWorld.elves)) {
+                    break;
+                }
+                previousWorld = newWorld;
+                round++;
+            }
+
+            return round;
+        }
+
         public World tick(int times) {
             if (times == 0) {
                 return this;
             }
-
-            LOG.info("times: " + times + " => " + this);
 
             var newWorld = tick();
 
@@ -250,7 +262,6 @@ public class Day23 implements Day {
 
     @Override
     public Assignment second() {
-        return (run, input) -> "";
+        return (run, input) -> World.parse(input).firstRoundWithoutMove();
     }
-
 }
