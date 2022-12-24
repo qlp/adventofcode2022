@@ -71,6 +71,8 @@ public class Day24 implements Day {
     static class Valley {
         int[] blizzards;
 
+        int[] buffer;
+
         final int width;
 
         final int height;
@@ -86,6 +88,7 @@ public class Day24 implements Day {
             this.exit = exit;
 
             this.width = blizzards.length / height;
+            this.buffer = new int[blizzards.length];
         }
 
         private int timeWalking(boolean reversed) {
@@ -128,24 +131,27 @@ public class Day24 implements Day {
         }
 
         void tick() {
-            var newBlizzards = new int[width * height];
-
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    var value = blizzards[y * width + x];
+                    var leftX = (x + width - 1) % width;
+                    var rightX = (x + 1) % width;
+                    var upY = (y + height - 1) % height;
+                    var downY = (y + 1) % height;
 
-                    for (var direction : Direction.values()) {
-                        if (direction.isPresent(value)) {
-                            int newX = (x + direction.deltaX + width) % width;
-                            int newY = (y + direction.deltaY + height) % height;
+                    var receivedLeft = blizzards[y * width + leftX] & Direction.RIGHT.bit;
+                    var receivedRight = blizzards[y * width + rightX] & Direction.LEFT.bit;
+                    var receivedDown = blizzards[downY * width + x] & Direction.UP.bit;
+                    var receivedUp = blizzards[upY * width + x] & Direction.DOWN.bit;
 
-                            newBlizzards[newY * width + newX] |= direction.bit;
-                        }
-                    }
+                    var newBlizzardsAtLocation = receivedLeft | receivedRight | receivedUp | receivedDown;
+
+                    buffer[y * width + x] = newBlizzardsAtLocation;
                 }
             }
 
-            blizzards = newBlizzards;
+            int[] swap = blizzards;
+            blizzards = buffer;
+            buffer = swap;
         }
 
         static Valley parse(String string) {
