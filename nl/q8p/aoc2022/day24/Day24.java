@@ -6,11 +6,8 @@ import nl.q8p.aoc2022.Day;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.logging.Logger;
 
 public class Day24 implements Day {
-
-    private static final Logger LOG = Logger.getLogger(Day24.class.getName());
 
     enum Direction {
         UP(0, -1, 1, '^'),
@@ -38,11 +35,6 @@ public class Day24 implements Day {
         static Optional<Direction> parse(char representation) {
             return Arrays.stream(values()).filter(v -> v.representation == representation).findFirst();
         }
-
-        @Override
-        public String toString() {
-            return "" + representation;
-        }
     }
 
     enum Move {
@@ -52,20 +44,15 @@ public class Day24 implements Day {
         RIGHT(1, 0);
 
 
-        private int deltaX;
-        private int deltaY;
+        private final int deltaX;
+        private final int deltaY;
 
         Move(int deltaX, int deltaY) {
             this.deltaX = deltaX;
             this.deltaY = deltaY;
         }
     }
-    record Position(int x, int y) {
-        @Override
-        public String toString() {
-            return "[" + x + ", " + y + "]";
-        }
-    }
+    record Position(int x, int y) { }
 
     record Blizzard(Direction direction) { }
     static class Valley {
@@ -75,17 +62,57 @@ public class Day24 implements Day {
 
         final int height;
 
-        final int entryX;
+        final Position entry;
 
-        final int exitX;
+        final Position exit;
 
         Valley(int[][] blizzards, int entryX, int exitX) {
             this.blizzards = blizzards;
             this.width = blizzards[0].length;
             this.height = blizzards.length;
-            this.entryX = entryX;
-            this.exitX = exitX;
+            this.entry = new Position(entryX, -1);
+            this.exit = new Position(exitX, height);
         }
+
+        private int timeWalking(boolean reversed) {
+            var start = reversed ? exit : entry;
+            var finish = reversed ? entry : exit;
+
+            var possible = new HashSet<Position>();
+            possible.add(start);
+
+            var time = 0;
+            do {
+                tick();
+
+                var positionsToAdd = new HashSet<Position>();
+
+                for (var position : possible) {
+                    for (var move : Move.values()) {
+                        var newX = position.x + move.deltaX;
+                        var newY = position.y + move.deltaY;
+
+                        if (isFree(newX, newY)) {
+                            positionsToAdd.add(new Position(newX, newY));
+                        }
+                    }
+                }
+
+                possible.addAll(positionsToAdd);
+
+                for (var x = 0; x < width; x++) {
+                    for (var y = 0; y < height; y++) {
+                        if (!isFree(x, y)) {
+                            possible.remove(new Position(x, y));
+                        }
+                    }
+                }
+
+                time++;
+            } while (!possible.contains(finish));
+            return time;
+        }
+
 
         void tick() {
             var newBlizzards = new int[height][];
@@ -137,100 +164,16 @@ public class Day24 implements Day {
             return new Valley(blizzards, entryX, exitX);
         }
 
-        @Override
-        public String toString() {
-            var builder = new StringBuilder();
-
-            builder.append(rowWithGapAtX(entryX));
-            builder.append('\n');
-
-            for (var y = 0; y < height; y++) {
-                builder.append('#');
-
-                for (var x = 0; x < width; x++) {
-                    var value = blizzards[y][x];
-
-                    var directions = Arrays.stream(Direction.values()).filter(d -> (value & d.bit) == d.bit).toList();
-
-                    var representation = switch (directions.size()) {
-                        case 0 -> '.';
-                        case 1 -> directions.get(0).representation;
-                        default -> (char)('0' + directions.size());
-                    };
-
-                    builder.append(representation);
-                }
-
-                builder.append('#');
-                builder.append('\n');
-            }
-
-            builder.append(rowWithGapAtX(exitX));
-            builder.append('\n');
-
-            return builder.toString();
-        }
-
-        private String rowWithGapAtX(int x) {
-            var top = new StringBuilder("#".repeat(width + 2));
-            top.setCharAt(x + 1, '.');
-            return top.toString();
-        }
-
         public boolean isFree(int newX, int newY) {
             if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
                 return blizzards[newY][newX] == 0;
-            } else return (newY == height && newX == exitX) || (newY == -1 && newX == entryX);
+            } else return (newY == exit.y && newX == exit.x) || (newY == entry.y && newX == entry.x);
         }
     }
 
     @Override
     public Assignment first() {
-        return (run, input) -> {
-            var valley = Valley.parse(input);
-
-            var entryPosition = new Position(valley.entryX, -1);
-            var exitPosition = new Position(valley.exitX, valley.height);
-
-            int time = timeMovingFromTo(valley, entryPosition, exitPosition);
-
-            return time;
-        };
-    }
-
-    private static int timeMovingFromTo(Valley valley, Position entryPosition, Position exitPosition) {
-        var positions = new HashSet<Position>();
-        positions.add(entryPosition);
-
-        var time = 0;
-        do {
-            valley.tick();
-
-            var positionsToAdd = new HashSet<Position>();
-
-            for (var position : positions) {
-                for (var move : Move.values()) {
-                    var newX = position.x + move.deltaX;
-                    var newY = position.y + move.deltaY;
-
-                    if (valley.isFree(newX, newY)) {
-                        positionsToAdd.add(new Position(newX, newY));
-                    }
-                }
-            }
-
-            positions.addAll(positionsToAdd);
-            for (var x = 0; x < valley.width; x++) {
-                for (var y = 0; y < valley.height; y++) {
-                    if (!valley.isFree(x, y)) {
-                        positions.remove(new Position(x, y));
-                    }
-                }
-            }
-
-            time++;
-        } while (!positions.contains(exitPosition));
-        return time;
+        return (run, input) -> Valley.parse(input).timeWalking(false);
     }
 
     @Override
@@ -238,15 +181,9 @@ public class Day24 implements Day {
         return (run, input) -> {
             var valley = Valley.parse(input);
 
-            var entryPosition = new Position(valley.entryX, -1);
-            var exitPosition = new Position(valley.exitX, valley.height);
-
-            int time1 = timeMovingFromTo(valley, entryPosition, exitPosition);
-            LOG.info("1: " + time1);
-            int time2 = timeMovingFromTo(valley, exitPosition, entryPosition);
-            LOG.info("2: " + time2);
-            int time3 = timeMovingFromTo(valley, entryPosition, exitPosition);
-            LOG.info("3: " + time3);
+            int time1 = valley.timeWalking(false);
+            int time2 = valley.timeWalking(true);
+            int time3 = valley.timeWalking(false);
 
             return time1 + time2 + time3;
         };
