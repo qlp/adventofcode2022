@@ -6,10 +6,10 @@ import nl.q8p.aoc2022.Day;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -23,6 +23,8 @@ public class Day23 implements Day {
 
         final Move target;
         final EnumSet<Move> checks;
+
+        final int mask;
 
         List<Direction> consider() {
             var values = values();
@@ -49,25 +51,28 @@ public class Day23 implements Day {
         Direction(Move target, Move diagonal1, Move diagonal2) {
             this.target = target;
             this.checks = EnumSet.of(target, diagonal1, diagonal2);
+            this.mask = checks.stream().mapToInt(move -> move.bit).reduce(0, (a, b) -> a | b);
         }
     }
 
     enum Move {
-        N(0, -1),
-        NE(1, -1),
-        E(1, 0),
-        SE(1, 1),
-        S(0, 1),
-        SW(-1, 1),
-        W(-1, 0),
-        NW(-1, -1);
+        N(0, -1, 1),
+        NE(1, -1, 2),
+        E(1, 0, 4),
+        SE(1, 1, 8),
+        S(0, 1, 16),
+        SW(-1, 1, 32),
+        W(-1, 0, 64),
+        NW(-1, -1, 128);
 
         final int x;
         final int y;
+        final int bit;
 
-        Move(int x, int y) {
+        Move(int x, int y, int bit) {
             this.x = x;
             this.y = y;
+            this.bit = bit;
         }
     }
 
@@ -205,14 +210,14 @@ public class Day23 implements Day {
         Position next(Position from, List<Direction> consider) {
             Position result = null;
 
-            if (from.around().stream().noneMatch(elves::contains)) {
+            int around = Arrays.stream(Move.values()).mapToInt(move -> elves.contains(from.move(move)) ? move.bit : 0).reduce(0, (a, b) -> a | b);
+
+            if (around == 0) {
                 return from;
             }
 
             for (var candidate : consider) {
-                var checks = candidate.checks.stream().map(from::move).collect(Collectors.toSet());
-
-                if (checks.stream().noneMatch(elves::contains)) {
+                if ((around & candidate.mask) == 0) {
                     result = from.move(candidate.target);
                     break;
                 }
@@ -227,16 +232,16 @@ public class Day23 implements Day {
 
         World tick() {
             var consider = direction.consider();
-            var currentToNext = new ConcurrentHashMap<Position, Position>();
-            var targetCount = new ConcurrentHashMap<Position, Integer>();
+            var currentToNext = new HashMap<Position, Position>();
+            var targetCount = new HashMap<Position, Integer>();
 
-            elves.stream().parallel().forEach(current -> {
+            elves.stream().forEach(current -> {
                 var next = next(current, consider);
                 currentToNext.put(current, next);
                 targetCount.put(next, targetCount.getOrDefault(next, 0) + 1);
             });
 
-            var result = elves.stream().parallel().map(current -> {
+            var result = elves.stream().map(current -> {
                 var next = currentToNext.get(current);
 
                 if (targetCount.get(next) == 1) {
