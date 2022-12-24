@@ -4,6 +4,7 @@ import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -44,6 +45,21 @@ public class Day24 implements Day {
         }
     }
 
+    enum Move {
+        UP(0, -1),
+        DOWN(0, 1),
+        LEFT(-1, 0),
+        RIGHT(1, 0);
+
+
+        private int deltaX;
+        private int deltaY;
+
+        Move(int deltaX, int deltaY) {
+            this.deltaX = deltaX;
+            this.deltaY = deltaY;
+        }
+    }
     record Position(int x, int y) {
         @Override
         public String toString() {
@@ -160,6 +176,12 @@ public class Day24 implements Day {
             top.setCharAt(x + 1, '.');
             return top.toString();
         }
+
+        public boolean isFree(int newX, int newY) {
+            if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
+                return blizzards[newY][newX] == 0;
+            } else return newY == height && newX == exitX;
+        }
     }
 
     @Override
@@ -167,13 +189,42 @@ public class Day24 implements Day {
         return (run, input) -> {
             var valley = Valley.parse(input);
 
-            for (int minute = 0; minute < 5; minute++) {
-                LOG.info("minute " + minute + "\n" + valley);
+            var entryPosition = new Position(valley.entryX, -1);
+            var exitPosition = new Position(valley.exitX, valley.height);
 
+            var positions = new HashSet<Position>();
+            positions.add(entryPosition);
+
+            var time = 0;
+            do {
                 valley.tick();
-            }
 
-            return valley.toString();
+                var positionsToAdd = new HashSet<Position>();
+
+                for (var position : positions) {
+                    for (var move : Move.values()) {
+                        var newX = position.x + move.deltaX;
+                        var newY = position.y + move.deltaY;
+
+                        if (valley.isFree(newX, newY)) {
+                            positionsToAdd.add(new Position(newX, newY));
+                        }
+                    }
+                }
+
+                positions.addAll(positionsToAdd);
+                for (var x = 0; x < valley.width; x++) {
+                    for (var y = 0; y < valley.height; y++) {
+                        if (!valley.isFree(x, y)) {
+                            positions.remove(new Position(x, y));
+                        }
+                    }
+                }
+
+                time++;
+            } while (!positions.contains(exitPosition));
+
+            return time;
         };
     }
 
