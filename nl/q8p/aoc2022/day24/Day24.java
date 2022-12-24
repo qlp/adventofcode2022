@@ -56,18 +56,28 @@ public class Day24 implements Day {
             this.buffer = new int[positions.length];
         }
 
-        private int timeWalking(boolean reversed) {
-            for (int i = 0; i < positions.length; i++) {
-                positions[i] &= (LEFT.bit | RIGHT.bit | UP.bit | DOWN.bit);
+        private int timeWalking(int runs) {
+            var time = 0;
+            boolean reversed = false;
+
+            for (var run = 0; run < runs; run++) {
+                var reachedDestination = false;
+                do {
+                    reachedDestination = tick(reversed);
+
+                    time++;
+                } while (!reachedDestination);
+
+                if (run + 1 < runs) {
+                    // remove me from positions
+                    for (int i = 0; i < positions.length; i++) {
+                        positions[i] &= (LEFT.bit | RIGHT.bit | UP.bit | DOWN.bit);
+                    }
+
+                    reversed = !reversed;
+                }
             }
 
-            var reachedDestination = false;
-            var time = 0;
-            do {
-                reachedDestination = tick(reversed);
-
-                time++;
-            } while (!reachedDestination);
             return time;
         }
 
@@ -144,19 +154,11 @@ public class Day24 implements Day {
 
     @Override
     public Assignment first() {
-        return (run, input) -> Valley.parse(input).timeWalking(false);
+        return (run, input) -> Valley.parse(input).timeWalking(1);
     }
 
     @Override
     public Assignment second() {
-        return (run, input) -> {
-            var valley = Valley.parse(input);
-
-            int time1 = valley.timeWalking(false);
-            int time2 = valley.timeWalking(true);
-            int time3 = valley.timeWalking(false);
-
-            return time1 + time2 + time3;
-        };
+        return (run, input) -> Valley.parse(input).timeWalking(3);
     }
 }
