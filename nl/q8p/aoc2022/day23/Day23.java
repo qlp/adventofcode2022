@@ -9,7 +9,9 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -232,24 +234,24 @@ public class Day23 implements Day {
 
         World tick() {
             var consider = direction.consider();
-            var targetCount = new HashMap<Position, Integer>();
+            var currentToNext = new ConcurrentHashMap<Position, Position>();
+            var targetCount = new ConcurrentHashMap<Position, Integer>();
 
-            for (var current: elves) {
+            elves.stream().parallel().forEach(current -> {
                 var next = next(current, consider);
+                currentToNext.put(current, next);
                 targetCount.put(next, targetCount.getOrDefault(next, 0) + 1);
-            }
+            });
 
-            var result = new HashSet<Position>();
-
-            for (var current: elves) {
-                var next = next(current, consider);
+            var result = elves.stream().parallel().map(current -> {
+                var next = currentToNext.get(current);
 
                 if (targetCount.get(next) == 1) {
-                    result.add(next);
+                    return next;
                 } else {
-                    result.add(current);
+                    return current;
                 }
-            }
+            }).collect(Collectors.toSet());
 
             return new World(result, direction.next());
         }
