@@ -6,13 +6,10 @@ import nl.q8p.aoc2022.Day;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -41,10 +38,6 @@ public class Day23 implements Day {
             return result;
         }
 
-        Position move(Position position) {
-            return position.move(target);
-        }
-
         public Direction next() {
             var values = values();
             var count = values.length;
@@ -69,16 +62,16 @@ public class Day23 implements Day {
         W(-1, 0),
         NW(-1, -1);
 
-        final long x;
-        final long y;
+        final int x;
+        final int y;
 
-        Move(long x, long y) {
+        Move(int x, int y) {
             this.x = x;
             this.y = y;
         }
     }
 
-    record Position(long x, long y) {
+    record Position(int x, int y) {
 
         @Override
         public String toString() {
@@ -95,15 +88,15 @@ public class Day23 implements Day {
     }
 
     record Area(Position min, Position max) {
-        long width() {
+        int width() {
             return max.x - min.x + 1;
         }
 
-        long height() {
+        int height() {
             return max.y - min.y + 1;
         }
 
-        long surface() {
+        int surface() {
             return width() * height();
         }
 
@@ -124,11 +117,11 @@ public class Day23 implements Day {
         }
 
         Area area() {
-            var minX = elves.stream().mapToLong(elve -> elve.x).min().orElseThrow();
-            var maxX = elves.stream().mapToLong(elve -> elve.x).max().orElseThrow();
+            var minX = elves.stream().mapToInt(elve -> elve.x).min().orElseThrow();
+            var maxX = elves.stream().mapToInt(elve -> elve.x).max().orElseThrow();
 
-            var minY = elves.stream().mapToLong(elve -> elve.y).min().orElseThrow();
-            var maxY = elves.stream().mapToLong(elve -> elve.y).max().orElseThrow();
+            var minY = elves.stream().mapToInt(elve -> elve.y).min().orElseThrow();
+            var maxY = elves.stream().mapToInt(elve -> elve.y).max().orElseThrow();
 
             return new Area(
                 new Position(minX, minY),
@@ -140,7 +133,7 @@ public class Day23 implements Day {
             return elves.contains(position);
         }
 
-        long emptyTiles() {
+        int emptyTiles() {
             return area().surface() - elves.size();
         }
 
@@ -151,8 +144,8 @@ public class Day23 implements Day {
 
             result.append(area.toString() + ": direction: " + direction + "\n");
 
-            for (long y = area.min.y; y <= area.max.y; y++) {
-                for (long x = area.min.x; x <= area.max.x; x++) {
+            for (int y = area.min.y; y <= area.max.y; y++) {
+                for (int x = area.min.x; x <= area.max.x; x++) {
                     if (exists(new Position(x, y))) {
                         result.append('#');
                     } else {
@@ -182,7 +175,7 @@ public class Day23 implements Day {
             return new World(elves, Direction.UP);
         }
 
-        public long firstRoundWithoutMove() {
+        public int firstRoundWithoutMove() {
             int round = 1;
 
             var previousWorld = this;
