@@ -4,33 +4,26 @@ import nl.q8p.aoc2022.Assignment;
 import nl.q8p.aoc2022.Day;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.logging.Logger;
+
+import static nl.q8p.aoc2022.day24.Day24.Direction.DOWN;
+import static nl.q8p.aoc2022.day24.Day24.Direction.LEFT;
+import static nl.q8p.aoc2022.day24.Day24.Direction.RIGHT;
+import static nl.q8p.aoc2022.day24.Day24.Direction.UP;
 
 public class Day24 implements Day {
-
-    private static final Logger LOG = Logger.getLogger(Day24.class.getName());
+    static final int ME_BIT = 16;
 
     enum Direction {
-        UP(0, -1, 1, '^'),
-        DOWN(0, 1, 2, 'v'),
-        LEFT(-1, 0, 4, '<'),
-        RIGHT(1, 0, 8, '>');
-
-        final int deltaX;
-        final int deltaY;
+        UP(1, '^'),
+        DOWN(2, 'v'),
+        LEFT(4, '<'),
+        RIGHT(8, '>');
 
         final int bit;
         final char representation;
 
-        boolean isPresent(int value) {
-            return (value & bit) == bit;
-        }
-
-        Direction(int deltaX, int deltaY, int bit, char representation) {
-            this.deltaX = deltaX;
-            this.deltaY = deltaY;
+        Direction(int bit, char representation) {
             this.bit = bit;
             this.representation = representation;
         }
@@ -38,38 +31,10 @@ public class Day24 implements Day {
         static Optional<Direction> parse(char representation) {
             return Arrays.stream(values()).filter(v -> v.representation == representation).findFirst();
         }
-
-        @Override
-        public String toString() {
-            return "" + representation;
-        }
     }
 
-    enum Move {
-        UP(0, -1),
-        DOWN(0, 1),
-        LEFT(-1, 0),
-        RIGHT(1, 0);
-
-
-        private final int deltaX;
-        private final int deltaY;
-
-        Move(int deltaX, int deltaY) {
-            this.deltaX = deltaX;
-            this.deltaY = deltaY;
-        }
-    }
-    record Position(int x, int y) {
-        @Override
-        public String toString() {
-            return "[" + x + ", " + y + "]";
-        }
-    }
-
-    record Blizzard(Direction direction) { }
     static class Valley {
-        int[] blizzards;
+        int[] positions;
 
         int[] buffer;
 
@@ -81,77 +46,74 @@ public class Day24 implements Day {
 
         final int exit;
 
-        Valley(int[] blizzards, int height, int entry, int exit) {
-            this.blizzards = blizzards;
+        Valley(int[] positions, int height, int entry, int exit) {
+            this.positions = positions;
             this.height = height;
             this.entry = entry;
             this.exit = exit;
 
-            this.width = blizzards.length / height;
-            this.buffer = new int[blizzards.length];
+            this.width = positions.length / height;
+            this.buffer = new int[positions.length];
         }
 
         private int timeWalking(boolean reversed) {
-            var start = reversed ? new Position(exit, height) : new Position(entry, -1);
-            var finish = reversed ? new Position(entry, -1) : new Position(exit, height);
+            for (int i = 0; i < positions.length; i++) {
+                positions[i] &= (LEFT.bit | RIGHT.bit | UP.bit | DOWN.bit);
+            }
 
-            var possible = new HashSet<Position>();
-            possible.add(start);
-
+            var reachedDestination = false;
             var time = 0;
             do {
-                tick();
-
-                var positionsToAdd = new HashSet<Position>();
-
-                for (var position : possible) {
-                    for (var move : Move.values()) {
-                        var newX = position.x + move.deltaX;
-                        var newY = position.y + move.deltaY;
-
-                        if (isFree(newX, newY)) {
-                            positionsToAdd.add(new Position(newX, newY));
-                        }
-                    }
-                }
-
-                possible.addAll(positionsToAdd);
-
-                for (var x = 0; x < width; x++) {
-                    for (var y = 0; y < height; y++) {
-                        if (!isFree(x, y)) {
-                            possible.remove(new Position(x, y));
-                        }
-                    }
-                }
+                reachedDestination = tick(reversed);
 
                 time++;
-            } while (!possible.contains(finish));
+            } while (!reachedDestination);
             return time;
         }
 
-        void tick() {
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
+        boolean tick(boolean reversed) {
+            boolean result =
+                (reversed && (positions[entry] & ME_BIT) == ME_BIT) ||
+                (!reversed && ((positions[(height - 1) * width + exit] & ME_BIT) == ME_BIT));
+
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
                     var leftX = (x + width - 1) % width;
                     var rightX = (x + 1) % width;
                     var upY = (y + height - 1) % height;
                     var downY = (y + 1) % height;
 
-                    var receivedLeft = blizzards[y * width + leftX] & Direction.RIGHT.bit;
-                    var receivedRight = blizzards[y * width + rightX] & Direction.LEFT.bit;
-                    var receivedDown = blizzards[downY * width + x] & Direction.UP.bit;
-                    var receivedUp = blizzards[upY * width + x] & Direction.DOWN.bit;
+                    var receivedLeft = positions[y * width + leftX] & Direction.RIGHT.bit;
+                    var receivedRight = positions[y * width + rightX] & LEFT.bit;
+                    var receivedDown = positions[downY * width + x] & Direction.UP.bit;
+                    var receivedUp = positions[upY * width + x] & Direction.DOWN.bit;
 
                     var newBlizzardsAtLocation = receivedLeft | receivedRight | receivedUp | receivedDown;
 
-                    buffer[y * width + x] = newBlizzardsAtLocation;
+                    if (newBlizzardsAtLocation > 0) {
+                        buffer[y * width + x] = newBlizzardsAtLocation;
+                    } else {
+                        var meStay = (positions[y * width + x] & ME_BIT) == ME_BIT;
+                        var meLeft = x != 0 && (positions[y * width + x - 1] & ME_BIT) == ME_BIT;
+                        var meRight = x + 1 < width && (positions[y * width + x + 1] & ME_BIT) == ME_BIT;
+                        var meDown = y + 1 < height && (positions[(y + 1) * width + x] & ME_BIT) == ME_BIT;
+                        var meUp = y > 0 && (positions[(y - 1) * width + x] & ME_BIT) == ME_BIT;
+
+                        var meSpawnAtTop = !reversed && y == 0 && x == entry;
+                        var meSpawnAtBottom = reversed && y == (height - 1) && x == exit;
+
+                        var newMeAtLocation = meStay || meLeft || meRight || meUp || meDown || meSpawnAtBottom || meSpawnAtTop;
+
+                        buffer[y * width + x] = newMeAtLocation ? ME_BIT : 0;
+                    }
                 }
             }
 
-            int[] swap = blizzards;
-            blizzards = buffer;
+            int[] swap = positions;
+            positions = buffer;
             buffer = swap;
+
+            return result;
         }
 
         static Valley parse(String string) {
@@ -177,52 +139,6 @@ public class Day24 implements Day {
             var exitX = lines[lines.length - 1].indexOf('.') - 1;
 
             return new Valley(blizzards, height, entryX, exitX);
-        }
-
-        @Override
-        public String toString() {
-            var builder = new StringBuilder();
-
-            builder.append(rowWithGapAtX(entry));
-            builder.append('\n');
-
-            for (var y = 0; y < height; y++) {
-                builder.append('#');
-
-                for (var x = 0; x < width; x++) {
-                    var value = blizzards[y * width + x];
-
-                    var directions = Arrays.stream(Direction.values()).filter(d -> (value & d.bit) == d.bit).toList();
-
-                    var representation = switch (directions.size()) {
-                        case 0 -> '.';
-                        case 1 -> directions.get(0).representation;
-                        default -> (char)('0' + directions.size());
-                    };
-
-                    builder.append(representation);
-                }
-
-                builder.append('#');
-                builder.append('\n');
-            }
-
-            builder.append(rowWithGapAtX(exit));
-            builder.append('\n');
-
-            return builder.toString();
-        }
-
-        private String rowWithGapAtX(int x) {
-            var top = new StringBuilder("#".repeat(width + 2));
-            top.setCharAt(x + 1, '.');
-            return top.toString();
-        }
-
-        public boolean isFree(int newX, int newY) {
-            if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
-                return blizzards[newY * width + newX] == 0;
-            } else return (newY == height && newX == exit) || (newY == -1 && newX == entry);
         }
     }
 
