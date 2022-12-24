@@ -180,7 +180,7 @@ public class Day24 implements Day {
         public boolean isFree(int newX, int newY) {
             if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
                 return blizzards[newY][newX] == 0;
-            } else return newY == height && newX == exitX;
+            } else return (newY == height && newX == exitX) || (newY == -1 && newX == entryX);
         }
     }
 
@@ -192,44 +192,63 @@ public class Day24 implements Day {
             var entryPosition = new Position(valley.entryX, -1);
             var exitPosition = new Position(valley.exitX, valley.height);
 
-            var positions = new HashSet<Position>();
-            positions.add(entryPosition);
-
-            var time = 0;
-            do {
-                valley.tick();
-
-                var positionsToAdd = new HashSet<Position>();
-
-                for (var position : positions) {
-                    for (var move : Move.values()) {
-                        var newX = position.x + move.deltaX;
-                        var newY = position.y + move.deltaY;
-
-                        if (valley.isFree(newX, newY)) {
-                            positionsToAdd.add(new Position(newX, newY));
-                        }
-                    }
-                }
-
-                positions.addAll(positionsToAdd);
-                for (var x = 0; x < valley.width; x++) {
-                    for (var y = 0; y < valley.height; y++) {
-                        if (!valley.isFree(x, y)) {
-                            positions.remove(new Position(x, y));
-                        }
-                    }
-                }
-
-                time++;
-            } while (!positions.contains(exitPosition));
+            int time = timeMovingFromTo(valley, entryPosition, exitPosition);
 
             return time;
         };
     }
 
+    private static int timeMovingFromTo(Valley valley, Position entryPosition, Position exitPosition) {
+        var positions = new HashSet<Position>();
+        positions.add(entryPosition);
+
+        var time = 0;
+        do {
+            valley.tick();
+
+            var positionsToAdd = new HashSet<Position>();
+
+            for (var position : positions) {
+                for (var move : Move.values()) {
+                    var newX = position.x + move.deltaX;
+                    var newY = position.y + move.deltaY;
+
+                    if (valley.isFree(newX, newY)) {
+                        positionsToAdd.add(new Position(newX, newY));
+                    }
+                }
+            }
+
+            positions.addAll(positionsToAdd);
+            for (var x = 0; x < valley.width; x++) {
+                for (var y = 0; y < valley.height; y++) {
+                    if (!valley.isFree(x, y)) {
+                        positions.remove(new Position(x, y));
+                    }
+                }
+            }
+
+            time++;
+        } while (!positions.contains(exitPosition));
+        return time;
+    }
+
     @Override
     public Assignment second() {
-        return (run, input) -> "";
+        return (run, input) -> {
+            var valley = Valley.parse(input);
+
+            var entryPosition = new Position(valley.entryX, -1);
+            var exitPosition = new Position(valley.exitX, valley.height);
+
+            int time1 = timeMovingFromTo(valley, entryPosition, exitPosition);
+            LOG.info("1: " + time1);
+            int time2 = timeMovingFromTo(valley, exitPosition, entryPosition);
+            LOG.info("2: " + time2);
+            int time3 = timeMovingFromTo(valley, entryPosition, exitPosition);
+            LOG.info("3: " + time3);
+
+            return time1 + time2 + time3;
+        };
     }
 }
