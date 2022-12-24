@@ -5,8 +5,11 @@ import nl.q8p.aoc2022.Day;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 public class Day24 implements Day {
+
+    private static final Logger LOG = Logger.getLogger(Day24.class.getName());
 
     enum Direction {
         UP(0, -1, 1, '^'),
@@ -14,15 +17,19 @@ public class Day24 implements Day {
         LEFT(-1, 0, 4, '<'),
         RIGHT(1, 0, 8, '>');
 
-        int x;
-        int y;
+        final int deltaX;
+        final int deltaY;
 
-        int bit;
-        char representation;
+        final int bit;
+        final char representation;
+
+        boolean isPresent(int value) {
+            return (value & bit) == bit;
+        }
 
         Direction(int deltaX, int deltaY, int bit, char representation) {
-            this.x = deltaX;
-            this.y = deltaY;
+            this.deltaX = deltaX;
+            this.deltaY = deltaY;
             this.bit = bit;
             this.representation = representation;
         }
@@ -46,7 +53,7 @@ public class Day24 implements Day {
 
     record Blizzard(Direction direction) { }
     static class Valley {
-        final int[][] blizzards;
+        int[][] blizzards;
 
         final int width;
 
@@ -62,6 +69,30 @@ public class Day24 implements Day {
             this.height = blizzards.length;
             this.entryX = entryX;
             this.exitX = exitX;
+        }
+
+        void tick() {
+            var newBlizzards = new int[height][];
+            for (int y = 0; y < height; y++) {
+                newBlizzards[y] = new int[width];
+            }
+
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    var value = blizzards[y][x];
+
+                    for (var direction : Direction.values()) {
+                        if (direction.isPresent(value)) {
+                            int newX = (x + direction.deltaX + width) % width;
+                            int newY = (y + direction.deltaY + height) % height;
+
+                            newBlizzards[newY][newX] |= direction.bit;
+                        }
+                    }
+                }
+            }
+
+            blizzards = newBlizzards;
         }
 
         static Valley parse(String string) {
@@ -135,6 +166,12 @@ public class Day24 implements Day {
     public Assignment first() {
         return (run, input) -> {
             var valley = Valley.parse(input);
+
+            for (int minute = 0; minute < 5; minute++) {
+                LOG.info("minute " + minute + "\n" + valley);
+
+                valley.tick();
+            }
 
             return valley.toString();
         };
