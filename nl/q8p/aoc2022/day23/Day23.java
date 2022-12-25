@@ -6,13 +6,10 @@ import nl.q8p.aoc2022.Day;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -177,7 +174,7 @@ public class Day23 implements Day {
         static World parse(String string) {
             var lines = Arrays.stream(string.split("\\n")).toList();
 
-            Set<Position> elves = ConcurrentHashMap.newKeySet();
+            Set<Position> elves = new HashSet<>();
 
             for (int y = 0; y < lines.size(); y++) {
                 var line = lines.get(y);
