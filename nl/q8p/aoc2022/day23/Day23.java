@@ -9,12 +9,14 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 public class Day23 implements Day {
+    private static final Logger LOG = Logger.getLogger(Day23.class.getName());
 
     enum Direction {
         UP(Move.N, Move.NE, Move.NW),
@@ -56,14 +58,19 @@ public class Day23 implements Day {
         }
     }
 
+    static final int N_BIT = 1;
+    static final int E_BIT = 4;
+    static final int S_BIT = 16;
+    static final int W_BIT = 64;
+
     enum Move {
-        N(0, -1, 1),
+        N(0, -1, N_BIT),
         NE(1, -1, 2),
-        E(1, 0, 4),
+        E(1, 0, E_BIT),
         SE(1, 1, 8),
-        S(0, 1, 16),
+        S(0, 1, S_BIT),
         SW(-1, 1, 32),
-        W(-1, 0, 64),
+        W(-1, 0, W_BIT),
         NW(-1, -1, 128);
 
         final int x;
@@ -87,6 +94,10 @@ public class Day23 implements Day {
         public Position move(Move move) {
             return new Position(x + move.x, y + move.y);
         }
+
+        public Position from(Move move) {
+            return new Position(x - move.x, y - move.y);
+        };
     }
 
     record Area(Position min, Position max) {
@@ -111,7 +122,7 @@ public class Day23 implements Day {
     static class World {
         final Set<Position> elves;
 
-        final Direction direction;
+        Direction direction;
 
         World(Set<Position> elves, Direction direction) {
             this.elves = elves;
@@ -180,14 +191,7 @@ public class Day23 implements Day {
         public int firstRoundWithoutMove() {
             int round = 1;
 
-            var previousWorld = this;
-            while(true) {
-                var newWorld = previousWorld.tick();
-
-                if (newWorld.elves.equals(previousWorld.elves)) {
-                    break;
-                }
-                previousWorld = newWorld;
+            while(tick()) {
                 round++;
             }
 
@@ -195,18 +199,16 @@ public class Day23 implements Day {
         }
 
         public World tick(int times) {
-            if (times == 0) {
-                return this;
+            for (int time = 0; time < times; time++) {
+                tick();
             }
 
-            var newWorld = tick();
-
-            return newWorld.tick(times - 1);
+            return this;
         }
 
-        Position next(Position from, List<Direction> consider) {
-            Position result = null;
+        record PositionMove(Position position, Move move) { }
 
+        Optional<PositionMove> next(Position from, List<Direction> consider) {
             int around = 0;
             around |= elves.contains(new Position(from.x + Move.N.x, from.y + Move.N.y)) ? Move.N.bit : 0;
             around |= elves.contains(new Position(from.x + Move.NE.x, from.y + Move.NE.y)) ? Move.NE.bit : 0;
@@ -218,45 +220,49 @@ public class Day23 implements Day {
             around |= elves.contains(new Position(from.x + Move.NW.x, from.y + Move.NW.y)) ? Move.NW.bit : 0;
 
             if (around == 0) {
-                return from;
+                return Optional.empty();
             }
 
             for (var candidate : consider) {
                 if ((around & candidate.mask) == 0) {
-                    result = from.move(candidate.target);
-                    break;
+                    return Optional.of(new PositionMove(from.move(candidate.target), candidate.target));
                 }
             }
 
-            if (result == null) {
-                result = from;
-            }
-
-            return result;
+            return Optional.empty();
         }
 
-        World tick() {
+        boolean tick() {
             var consider = direction.consider();
-            var currentToNext = new HashMap<Position, Position>();
-            var targetCount = new HashMap<Position, Integer>();
+            var nextToMoves = new HashMap<Position, Integer>();
 
             elves.forEach(current -> {
                 var next = next(current, consider);
-                currentToNext.put(current, next);
-                targetCount.put(next, targetCount.getOrDefault(next, 0) + 1);
+                next.ifPresent(n -> nextToMoves.compute(n.position, (k, v) -> v == null ? n.move.bit : v | n.move.bit));
             });
 
-            var result = elves.stream().map(current -> {
-                var next = currentToNext.get(current);
+            var changed = new AtomicBoolean(false);
 
-                if (targetCount.get(next) == 1) {
-                    return next;
-                } else {
-                    return current;
+            nextToMoves.forEach((next, moves) -> {
+                var move = switch (moves) {
+                    case N_BIT -> Move.N;
+                    case E_BIT -> Move.E;
+                    case S_BIT -> Move.S;
+                    case W_BIT -> Move.W;
+                    default -> null;
+                };
+
+                if (move != null) {
+                    changed.set(true);
+                    var from = next.from(move);
+                    elves.remove(from);
+                    elves.add(next);
                 }
-            }).collect(Collectors.toSet());
+            });
 
-            return new World(result, direction.next());
+            direction = direction.next();
+
+            return changed.get();
         }
     }
 
