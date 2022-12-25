@@ -235,7 +235,7 @@ public class Day23 implements Day {
             var currentToNext = new HashMap<Position, Position>();
             var targetCount = new HashMap<Position, Integer>();
 
-            elves.stream().forEach(current -> {
+            elves.forEach(current -> {
                 var next = next(current, consider);
                 currentToNext.put(current, next);
                 targetCount.put(next, targetCount.getOrDefault(next, 0) + 1);
