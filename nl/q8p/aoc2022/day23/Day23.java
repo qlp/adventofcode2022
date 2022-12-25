@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
@@ -234,9 +235,9 @@ public class Day23 implements Day {
 
         boolean tick() {
             var consider = direction.consider();
-            var nextToMoves = new HashMap<Position, Integer>();
+            var nextToMoves = new ConcurrentHashMap<Position, Integer>();
 
-            elves.forEach(current -> {
+            elves.stream().parallel().forEach(current -> {
                 var next = next(current, consider);
                 next.ifPresent(n -> nextToMoves.compute(n.position, (k, v) -> v == null ? n.move.bit : v | n.move.bit));
             });
