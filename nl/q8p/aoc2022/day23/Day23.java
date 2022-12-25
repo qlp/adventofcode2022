@@ -9,11 +9,13 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Day23 implements Day {
@@ -175,7 +177,7 @@ public class Day23 implements Day {
         static World parse(String string) {
             var lines = Arrays.stream(string.split("\\n")).toList();
 
-            Set<Position> elves = new HashSet<>();
+            Set<Position> elves = ConcurrentHashMap.newKeySet();
 
             for (int y = 0; y < lines.size(); y++) {
                 var line = lines.get(y);
@@ -235,14 +237,13 @@ public class Day23 implements Day {
 
         boolean tick() {
             var consider = direction.consider();
-            var nextToMoves = new ConcurrentHashMap<Position, Integer>();
-
-            elves.stream().parallel().forEach(current -> {
-                var next = next(current, consider);
-                next.ifPresent(n -> nextToMoves.compute(n.position, (k, v) -> v == null ? n.move.bit : v | n.move.bit));
-            });
 
             var changed = new AtomicBoolean(false);
+
+            var nextToMoves = elves.stream().parallel()
+                    .map(position -> next(position, consider))
+                    .flatMap(Optional::stream)
+                    .collect(Collectors.toMap(next -> next.position, next -> next.move.bit, (a, b) -> a | b));
 
             nextToMoves.forEach((next, moves) -> {
                 var move = switch (moves) {
