@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -85,10 +86,6 @@ public class Day23 implements Day {
 
         public Position move(Move move) {
             return new Position(x + move.x, y + move.y);
-        }
-
-        Set<Position> around() {
-            return Arrays.stream(Move.values()).map(this::move).collect(Collectors.toSet());
         }
     }
 
@@ -210,7 +207,15 @@ public class Day23 implements Day {
         Position next(Position from, List<Direction> consider) {
             Position result = null;
 
-            int around = Arrays.stream(Move.values()).mapToInt(move -> elves.contains(from.move(move)) ? move.bit : 0).reduce(0, (a, b) -> a | b);
+            int around = 0;
+            around |= elves.contains(new Position(from.x + Move.N.x, from.y + Move.N.y)) ? Move.N.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.NE.x, from.y + Move.NE.y)) ? Move.NE.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.E.x, from.y + Move.E.y)) ? Move.E.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.SE.x, from.y + Move.SE.y)) ? Move.SE.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.S.x, from.y + Move.S.y)) ? Move.S.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.SW.x, from.y + Move.SW.y)) ? Move.SW.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.W.x, from.y + Move.W.y)) ? Move.W.bit : 0;
+            around |= elves.contains(new Position(from.x + Move.NW.x, from.y + Move.NW.y)) ? Move.NW.bit : 0;
 
             if (around == 0) {
                 return from;
