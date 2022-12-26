@@ -24,14 +24,15 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         FIRST, SECOND
     }
 
-    void run(List<Run> runs) {
+    void run(List<Run> runs, int preHeatSeconds) {
         try {
             printAssignment(
                 switch (assignmentType) {
                     case FIRST -> day.first();
                     case SECOND -> day.second();
                 },
-                runs
+                runs,
+                preHeatSeconds
             );
         } catch (final Exception exception) {
             printException(exception);
@@ -44,12 +45,12 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         printSeparator();
     }
 
-    private void printAssignment(final Assignment assignment, List<Run> runs) {
+    private void printAssignment(final Assignment assignment, List<Run> runs, final int preHeatSeconds) {
         printHeader(assignmentType);
         try {
             final var assignmentData = readAssignmentData(assignmentType);
 
-            run(assignment, runs, assignmentData);
+            run(assignment, runs, assignmentData, preHeatSeconds);
 
 
         } catch (final IOException e) {
@@ -58,7 +59,7 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
         }
     }
 
-    private void run(final Assignment assignment, final List<Run> runs, final AssignmentData assignmentData) {
+    private void run(final Assignment assignment, final List<Run> runs, final AssignmentData assignmentData, final int preHeatSeconds) {
         if (runs.contains(Run.EXAMPLE)) {
             try {
                 final var actual = run(() -> assignment.run(Run.EXAMPLE, assignmentData.example).toString());
@@ -74,12 +75,11 @@ public record DayRunner(Day day, AssignmentType assignmentType) {
 
         if (runs.contains(Run.REAL)) {
             try {
-//                var maxPreHeatMillis = 10_000;
-                var maxPreHeatMillis = -1;
-                var maxReRunUntil = System.currentTimeMillis() + maxPreHeatMillis;
+                var maxReRunUntil = System.currentTimeMillis() + preHeatSeconds * 1_000L;
 
                 while (System.currentTimeMillis() < maxReRunUntil) {
                     assignment.run(Run.REAL, assignmentData.real);
+                    System.gc();
                 }
 
                 final var actual = run(() -> assignment.run(Run.REAL, assignmentData.real).toString());
